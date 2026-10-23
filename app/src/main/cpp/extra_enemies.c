@@ -13,7 +13,8 @@ typedef struct { uint8_t used, v[NF], box[4]; } Ex;
 static Ex ex[MAXE];
 static void put(const Ex *e) { for (int i = 0; i < NF; i++) ram[FA[i] + SLOT] = e->v[i]; memcpy(&ram[BOX], e->box, 4); }
 static void get(Ex *e) { for (int i = 0; i < NF; i++) e->v[i] = ram[FA[i] + SLOT]; memcpy(e->box, &ram[BOX], 4); }
-static uint8_t oam_of(int i) { return (uint8_t)(0xf8 - 24 * (i % 8)); } /* sementara: ekor OAM */
+static uint8_t oam_pool = 0xe8;
+static uint8_t oam_alloc(void) { uint8_t o = oam_pool; oam_pool = (oam_pool < 0x40 + 24) ? 0xe8 : (uint8_t)(oam_pool - 24); return o; }
 static void call(Ex *e, int init) {
     Ex keep; get(&keep);
     uint8_t s8 = ram[8], xr = x;
@@ -26,14 +27,16 @@ int extra_spawn(uint8_t kind, uint8_t page, uint8_t px, uint8_t py) {
     for (int i = 0; i < MAXE; i++) if (!ex[i].used) {
         Ex *e = &ex[i]; memset(e, 0, sizeof *e); e->used = 1;
         e->v[0] = 1; e->v[1] = kind; e->v[5] = page; e->v[6] = px; e->v[8] = 1; e->v[9] = py;
-        e->v[22] = oam_of(i);
-        call(e, 1); e->v[22] = oam_of(i);
+        e->v[22] = 0xe8;
+        call(e, 1); e->v[22] = 0xe8;
         return i;
     }
     return -1;
 }
 void extra_run(void) {
+    oam_pool = 0xe8;
     for (int i = 0; i < MAXE; i++) if (ex[i].used) {
+        ex[i].v[22] = oam_alloc();
         call(&ex[i], 0);
         if (!ex[i].v[0]) ex[i].used = 0;
     }
