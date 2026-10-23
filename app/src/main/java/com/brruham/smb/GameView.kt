@@ -112,7 +112,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
         while (running) {
             Core.frame(pixels)
             bmp.setPixels(pixels, 0, sw, 0, 0, sw, sh)
-            val c = holder.lockCanvas()
+            val c = if (android.os.Build.VERSION.SDK_INT >= 26) holder.lockHardwareCanvas() else holder.lockCanvas()
             if (c != null) {
                 try { drawUi(c) } finally { holder.unlockCanvasAndPost(c) }
             }

@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.22.1)
 project(smbcore C)
 get_filename_component(ROOT "${CMAKE_SOURCE_DIR}/../../../.." ABSOLUTE)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -std=c99 -ffunction-sections -fdata-sections")
+set(CMAKE_C_FLAGS_DEBUG "-O3")
+set(CMAKE_C_FLAGS_RELEASE "-O3")
 include_directories(${ROOT}/codegen ${ROOT}/codegen/game ${ROOT}/codegen/lib)
 add_library(smbcore SHARED
     jni_glue.c
