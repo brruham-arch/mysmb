@@ -21,6 +21,8 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
 
     @Volatile private var running = false
     @Volatile private var mask = 0
+    private val ticks = java.util.concurrent.atomic.AtomicInteger(0)
+    private var framesDone = 0
     private var gameThread: Thread? = null
     private var audioThread: Thread? = null
 
@@ -117,9 +119,8 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
             if (c != null) {
                 try { drawUi(c) } finally { holder.unlockCanvasAndPost(c) }
             }
-            next += frameNs
-            val d = next - System.nanoTime()
-            if (d > 0) Thread.sleep(d / 1_000_000L, (d % 1_000_000L).toInt()) else next = System.nanoTime()
+            framesDone++
+            while (running && framesDone >= ticks.get() + 3) Thread.sleep(1)
         }
     }
 
@@ -138,11 +139,12 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
             .setBufferSizeInBytes(maxOf(minBuf * 4, 32768))
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
-        val buf = FloatArray(1024)
+        val buf = FloatArray(800)
         track.play()
         while (running) {
             Core.audio(buf, buf.size)
             track.write(buf, 0, buf.size, AudioTrack.WRITE_BLOCKING)
+            ticks.incrementAndGet()
         }
         track.stop(); track.release()
     }
