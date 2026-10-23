@@ -108,6 +108,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
 
     private fun gameLoop() {
         val frameNs = 16_666_667L
+        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_DISPLAY)
         var next = System.nanoTime()
         while (running) {
             Core.frame(pixels)
@@ -124,6 +125,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
 
     private fun audioLoop() {
         val rate = 48000
+        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
         val minBuf = AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_FLOAT)
         val track = AudioTrack.Builder()
             .setAudioAttributes(AudioAttributes.Builder()
@@ -133,10 +135,10 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
                 .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
                 .setSampleRate(rate)
                 .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
-            .setBufferSizeInBytes(maxOf(minBuf, 4096) * 2)
+            .setBufferSizeInBytes(maxOf(minBuf * 4, 32768))
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
-        val buf = FloatArray(512)
+        val buf = FloatArray(1024)
         track.play()
         while (running) {
             Core.audio(buf, buf.size)
