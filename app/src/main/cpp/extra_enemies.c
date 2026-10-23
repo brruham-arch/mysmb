@@ -33,16 +33,20 @@ int extra_spawn(uint8_t kind, uint8_t page, uint8_t px, uint8_t py) {
     }
     return -1;
 }
-void extra_run(void) {
-    oam_pool = 0xe8;
-    for (int i = 0; i < MAXE; i++) if (ex[i].used) {
-        ex[i].v[22] = oam_alloc();
-        call(&ex[i], 0);
-        if (!ex[i].v[0]) ex[i].used = 0;
-    }
-}
 void extra_test(void) {
     static unsigned n; if (++n % 90) return;
     unsigned xx = ram[0x86] + 120;
     extra_spawn(0x06, (uint8_t)(ram[0x6d] + (xx >> 8)), (uint8_t)xx, 0xb0);
+}
+static int last_n;
+void extra_run(void) {
+    for (int k = 0; k < last_n; k++)
+        for (int j = 0; j < 24; j += 4) ram[0x200 + 0xe8 - 24 * k + j] = 0xf8;
+    int n = 0;
+    for (int i = 0; i < MAXE; i++) if (ex[i].used) {
+        ex[i].v[22] = (uint8_t)(0xe8 - 24 * (n < 8 ? n : 7)); n++;
+        call(&ex[i], 0);
+        if (!ex[i].v[0]) ex[i].used = 0;
+    }
+    last_n = n < 8 ? n : 8;
 }
