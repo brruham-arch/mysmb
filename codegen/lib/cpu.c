@@ -1,0 +1,271 @@
+#include "cpu.h"
+#ifdef PPU_BUS
+#include "ppu_bus.h" // generic programs only: tests/support/ppu_bus.c
+#endif
+#include "sound.h"
+
+uint8_t a;
+uint8_t x;
+uint8_t y;
+uint8_t sp;
+
+bool carry_flag;
+bool zero_flag;
+bool neg_flag;
+bool overflow_flag;
+bool interrupt_disabled;
+bool decimal_flag;
+uint16_t cpu_resume_pc;
+
+// Routine calls are C calls and leave no return address on the guest stack,
+// which stays observable to PHA/PLA, TSX and memory accesses.
+void cpu_push_return_address(uint16_t return_address) {
+    ram[0x100 + sp--] = (uint8_t)(return_address >> 8);
+    ram[0x100 + sp--] = (uint8_t)return_address;
+}
+
+void cpu_yield(uint16_t pc) {
+    cpu_resume_pc = pc;
+}
+
+uint16_t cpu_dispatch_target;
+
+// RTS used as a computed jump: pop the two bytes a dispatcher pushed.
+uint16_t cpu_return_target(void) {
+    uint16_t low = ram[0x100 + (uint8_t)(sp + 1)];
+    uint16_t high = ram[0x100 + (uint8_t)(sp + 2)];
+    sp = (uint8_t)(sp + 2);
+    return (uint16_t)(((high << 8) | low) + 1);
+}
+
+void cpu_unresolved_jump(uint16_t pc) {
+    cpu_resume_pc = pc;
+    __builtin_trap(); // explicit unsupported transfer, never silent fallthrough
+}
+
+// A computed access reached hardware this build does not model at the
+// register level (SMB writes its display state directly; see video.h).
+void cpu_unsupported_io(uint16_t addr) {
+    (void)addr;
+    __builtin_trap();
+}
+
+uint8_t ram[2048];
+
+uint8_t controller1_state;
+bool controller1_strobe;
+uint8_t controller1_btn_index;
+
+uint8_t controller2_state;
+bool controller2_strobe;
+uint8_t controller2_btn_index;
+
+inline void update_controller1(uint8_t state) {
+    controller1_state = state;
+}
+
+void cpu_init(void) {
+    // registers
+    a = 0;
+    x = 0;
+    y = 0;
+    sp = 0xff;
+
+    // flags
+    carry_flag = false;
+    zero_flag = false;
+    neg_flag = false;
+    overflow_flag = false;
+    interrupt_disabled = true;
+    decimal_flag = false;
+    cpu_resume_pc = 0;
+
+    // controller
+    controller1_state = 0;
+    controller1_strobe = false;
+    controller1_btn_index = 0;
+}
+
+uint8_t read_byte(uint16_t addr) {
+    if (addr < 0x2000) {
+        return ram[addr & 0b0000011111111111];
+    }
+
+    if (addr < 0x4000) {
+#ifdef PPU_BUS
+        return ppu_bus_read(addr);
+#else
+        cpu_unsupported_io(addr);
+#endif
+    }
+
+    if (addr == 0x4016) {
+        if (controller1_btn_index > 7) {
+            return 1;
+        }
+
+        uint8_t state = (controller1_state & (1 << controller1_btn_index)) >> controller1_btn_index;
+
+        if (!controller1_strobe && controller1_btn_index < 8) {
+            controller1_btn_index++;
+        }
+        
+        return state;
+    }
+
+    if (addr < 0x4020) {
+        // APU
+    }
+
+    if (addr >= 0x8000) {
+        return data[(addr - 0x8000) % prg_image_size];
+    }
+
+    return 0;
+}
+
+void write_joypad1(uint8_t value) {
+    controller1_strobe = (value & 1) == 1;
+    
+    if (controller1_strobe) {
+        controller1_btn_index = 0;
+    }
+}
+
+void write_joypad2(uint8_t value) {
+    controller2_strobe = (value & 1) == 1;
+    
+    if (controller2_strobe) {
+        controller2_btn_index = 0;
+    }
+}
+
+void dynamic_ram_write(uint16_t addr, uint8_t value) {
+    if (addr < 0x2000) {
+        ram[addr & 0b0000011111111111] = value;
+    } else if (addr < 0x4000 || addr == 0x4014) {
+#ifdef PPU_BUS
+        if (addr == 0x4014) ppu_bus_oam_dma(value); else ppu_bus_write(addr, value);
+#else
+        cpu_unsupported_io(addr);
+#endif
+    } else if (addr == 0x4016) {
+        write_joypad1(value);
+        write_joypad2(value);
+    } else if (addr < 0x4020) {
+        apu_write(addr, value);
+    }
+}
+
+uint16_t read_word(uint16_t addr) {
+    // little endian
+    uint16_t low_byte = (uint16_t)read_byte(addr);
+    uint16_t high_byte = (uint16_t)(((uint16_t)read_byte(addr + 1)) << 8);
+    uint16_t word = high_byte | low_byte;
+    return word;
+}
+
+uint16_t read_indirect_word(uint16_t addr) {
+    // NMOS 6502 JMP (indirect) wraps the high-byte fetch within the page.
+    uint16_t high_addr = (addr & 0xff00) | ((addr + 1) & 0x00ff);
+    return (uint16_t)read_byte(addr) | (uint16_t)((uint16_t)read_byte(high_addr) << 8);
+}
+
+void write_word(uint16_t addr, uint16_t value) {
+    dynamic_ram_write(addr, value & 0xff);
+    dynamic_ram_write(addr + 1, value >> 8);
+}
+
+// addressing mode utils
+
+void update_nz(uint8_t value) {
+    zero_flag = value == 0;
+    neg_flag = (value & 0b010000000) != 0;
+}
+
+inline uint8_t zero_page(uint8_t addr) {
+    return read_byte((uint16_t)addr);
+}
+
+inline uint8_t zero_page_x_addr(uint8_t addr) {
+    return addr + x;
+}
+
+inline uint8_t zero_page_x(uint8_t addr) {
+    return read_byte((uint16_t)zero_page_x_addr(addr));
+}
+
+inline uint8_t zero_page_y_addr(uint8_t addr) {
+    return addr + y;
+}
+
+inline uint8_t zero_page_y(uint8_t addr) {
+    return read_byte((uint16_t)zero_page_y_addr(addr));
+}
+
+inline uint8_t absolute(uint16_t addr) {
+    return read_byte(addr);
+}
+
+inline uint16_t absolute_x_addr(uint16_t addr) {
+    return addr + x;
+}
+
+inline uint8_t absolute_x(uint16_t addr) {
+    return read_byte(absolute_x_addr(addr));
+}
+
+inline uint8_t absolute_y(uint16_t addr) {
+    return read_byte(addr + y);
+}
+
+inline uint16_t indirect_x_addr(uint8_t addr) {
+    uint8_t addr1 = addr + x;
+    uint8_t addr2 = addr1 + 1; // zero page wrap around
+    uint16_t low_byte = (uint16_t)read_byte(addr1);
+    uint16_t high_byte = (uint16_t)(((uint16_t)read_byte(addr2)) << 8);
+    return high_byte | low_byte;
+}
+
+inline uint16_t indirect_y_addr(uint8_t addr) {
+    uint8_t addr2 = addr + 1; // zero page wrap around
+    uint16_t low_byte = (uint16_t)read_byte(addr);
+    uint16_t high_byte = (uint16_t)(((uint16_t)read_byte(addr2)) << 8);
+    return (high_byte | low_byte) + (uint16_t)y;
+}
+
+inline uint8_t indirect_x_val(uint8_t addr) {
+    return read_byte(indirect_x_addr(addr));
+}
+
+inline uint8_t indirect_y_val(uint8_t addr) {
+    return read_byte(indirect_y_addr(addr));
+}
+
+// PHP/PLP: the status register packed into one byte on the guest stack.
+void php(void) {
+    ram[0x100 + sp--] = (uint8_t)(0x30 | carry_flag | (zero_flag << 1) |
+        (interrupt_disabled << 2) | (decimal_flag << 3) |
+        (overflow_flag << 6) | (neg_flag << 7));
+}
+
+void plp(void) {
+    uint8_t p = ram[0x100 + ++sp];
+    carry_flag = (p & 1) != 0;
+    zero_flag = (p & 2) != 0;
+    interrupt_disabled = (p & 4) != 0;
+    decimal_flag = (p & 8) != 0;
+    overflow_flag = (p & 0x40) != 0;
+    neg_flag = (p & 0x80) != 0;
+}
+
+inline void next_frame(void) {
+    // NMI is delivered while the foreground is at a proven idle yield, which
+    // reads no registers or flags. Like RTI, restore the status flags.
+    bool c = carry_flag, z = zero_flag, n = neg_flag, v = overflow_flag;
+    bool i = interrupt_disabled, d = decimal_flag;
+    interrupt_disabled = true;
+    cpu_nmi_entry();
+    carry_flag = c; zero_flag = z; neg_flag = n; overflow_flag = v;
+    interrupt_disabled = i; decimal_flag = d;
+}
