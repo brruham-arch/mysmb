@@ -7,6 +7,7 @@ set(CMAKE_C_FLAGS_RELEASE "-O3")
 include_directories(${ROOT}/codegen ${ROOT}/codegen/game ${ROOT}/codegen/lib)
 add_library(smbcore SHARED
     jni_glue.c
+    extra_enemies.c
     ${ROOT}/codegen/game/code.c
     ${ROOT}/codegen/game/data.c
     ${ROOT}/codegen/lib/cpu.c
