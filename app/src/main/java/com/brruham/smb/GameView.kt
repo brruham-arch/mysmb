@@ -91,7 +91,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
 
     private fun drawUi(c: Canvas) {
         c.drawColor(Color.BLACK)
-        c.drawBitmap(bmp, null, gameRect, null)
+        c.drawBitmap(bmp, null, gameRect, null); c.drawText(dbg, c.width / 2f, gameRect.bottom + txt.textSize * 1.5f, txt)
         val m = mask
         btn(c, dpx, dpy - dr * 0.65f, dr * 0.32f, "^", m and UP != 0)
         btn(c, dpx, dpy + dr * 0.65f, dr * 0.32f, "v", m and DOWN != 0)
@@ -116,6 +116,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
     private var renderThread: android.os.HandlerThread? = null
     private var lastT = 0L
     private var acc = 0L
+    private var prod = 0; private var shown = 0; private var dropped = 0; private var maxGap = 0L; private var lastShow = 0L; private var tLog = 0L; private var dbg = ""
 
     private fun gameLoop() {
         Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
@@ -139,9 +140,9 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
         track.play()
         while (running) {
             Core.frame(pixels)
-            Core.audio(buf, chunk)
+            Core.audio(buf, chunk); prod++
             synchronized(qLock) {
-                if (qCount == QN) { qHead = (qHead + 1) % QN; qCount-- }
+                if (qCount == QN) { qHead = (qHead + 1) % QN; qCount--; dropped++ }
                 System.arraycopy(pixels, 0, q[(qHead + qCount) % QN], 0, pixels.size)
                 qCount++
             }
@@ -166,6 +167,10 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
                     qHead = (qHead + 1) % QN; qCount--
                 }
             }
+            shown++
+            if (lastShow != 0L && t - lastShow > maxGap) maxGap = t - lastShow
+            lastShow = t
+            if (t - tLog > 1_000_000_000L) { dbg = "prod=$prod shown=$shown drop=$dropped gap=${maxGap / 1000000}ms hz=${display?.refreshRate}"; prod = 0; shown = 0; dropped = 0; maxGap = 0; tLog = t }
             val c = if (android.os.Build.VERSION.SDK_INT >= 26) holder.lockHardwareCanvas() else holder.lockCanvas()
             if (c != null) {
                 try { drawUi(c) } finally { holder.unlockCanvasAndPost(c) }
