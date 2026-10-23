@@ -5,6 +5,7 @@ import android.graphics.*
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.os.Process
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -20,11 +21,10 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
     private val bmp = Bitmap.createBitmap(sw, sh, Bitmap.Config.ARGB_8888)
 
     @Volatile private var running = false
+    @Volatile private var dirty = false
     @Volatile private var mask = 0
-    private val ticks = java.util.concurrent.atomic.AtomicInteger(0)
-    private var framesDone = 0
     private var gameThread: Thread? = null
-    private var audioThread: Thread? = null
+    private var drawThread: Thread? = null
 
     private var gameRect = RectF()
     private var dpx = 0f; private var dpy = 0f; private var dr = 0f
@@ -108,26 +108,11 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
         c.drawText("START", startRect.centerX(), startRect.centerY() + txt.textSize / 3f, txt)
     }
 
+    // Satu thread: 1 frame game -> 800 sampel audio -> write blocking (audio = jam utama)
     private fun gameLoop() {
-        val frameNs = 16_666_667L
-        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_DISPLAY)
-        var next = System.nanoTime()
-        while (running) {
-            Core.frame(pixels)
-            bmp.setPixels(pixels, 0, sw, 0, 0, sw, sh)
-            val c = if (android.os.Build.VERSION.SDK_INT >= 26) holder.lockHardwareCanvas() else holder.lockCanvas()
-            if (c != null) {
-                try { drawUi(c) } finally { holder.unlockCanvasAndPost(c) }
-            }
-            framesDone++
-            while (running && framesDone >= ticks.get() + 3) Thread.sleep(1)
-        }
-    }
-
-    private fun audioLoop() {
+        Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
         val rate = 48000
-        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
-        val minBuf = AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_FLOAT)
+        val chunk = 800
         val track = AudioTrack.Builder()
             .setAudioAttributes(AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_GAME)
@@ -136,27 +121,44 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
                 .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
                 .setSampleRate(rate)
                 .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
-            .setBufferSizeInBytes(maxOf(minBuf * 4, 32768))
+            .setBufferSizeInBytes(chunk * 4 * 6)
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
-        val buf = FloatArray(800)
+        val buf = FloatArray(chunk)
+        val silence = FloatArray(chunk)
+        track.write(silence, 0, chunk, AudioTrack.WRITE_NON_BLOCKING)
+        track.write(silence, 0, chunk, AudioTrack.WRITE_NON_BLOCKING)
         track.play()
         while (running) {
-            Core.audio(buf, buf.size)
-            track.write(buf, 0, buf.size, AudioTrack.WRITE_BLOCKING)
-            ticks.incrementAndGet()
+            Core.frame(pixels)
+            Core.audio(buf, chunk)
+            track.write(buf, 0, chunk, AudioTrack.WRITE_BLOCKING)
+            synchronized(bmp) { bmp.setPixels(pixels, 0, sw, 0, 0, sw, sh) }
+            dirty = true
         }
         track.stop(); track.release()
+    }
+
+    private fun drawLoop() {
+        Process.setThreadPriority(Process.THREAD_PRIORITY_DISPLAY)
+        while (running) {
+            if (!dirty) { Thread.sleep(2); continue }
+            dirty = false
+            val c = if (android.os.Build.VERSION.SDK_INT >= 26) holder.lockHardwareCanvas() else holder.lockCanvas()
+            if (c != null) {
+                try { synchronized(bmp) { drawUi(c) } } finally { holder.unlockCanvasAndPost(c) }
+            }
+        }
     }
 
     override fun surfaceCreated(h: SurfaceHolder) {
         running = true
         gameThread = Thread { gameLoop() }.also { it.start() }
-        audioThread = Thread { audioLoop() }.also { it.start() }
+        drawThread = Thread { drawLoop() }.also { it.start() }
     }
     override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, hh: Int) {}
     override fun surfaceDestroyed(h: SurfaceHolder) {
         running = false
-        gameThread?.join(); audioThread?.join()
+        gameThread?.join(); drawThread?.join()
     }
 }
