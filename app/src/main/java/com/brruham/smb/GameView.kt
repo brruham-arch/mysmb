@@ -108,7 +108,15 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
         c.drawText("START", startRect.centerX(), startRect.centerY() + txt.textSize / 3f, txt)
     }
 
-    // Satu thread: 1 frame game -> 800 sampel audio -> write blocking (audio = jam utama)
+    private val QN = 4
+    private val q = Array(QN) { IntArray(sw * sh) }
+    private var qHead = 0
+    private var qCount = 0
+    private val qLock = Any()
+    private var renderThread: android.os.HandlerThread? = null
+    private var lastT = 0L
+    private var acc = 0L
+
     private fun gameLoop() {
         Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
         val rate = 48000
@@ -132,33 +140,55 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
         while (running) {
             Core.frame(pixels)
             Core.audio(buf, chunk)
+            synchronized(qLock) {
+                if (qCount == QN) { qHead = (qHead + 1) % QN; qCount-- }
+                System.arraycopy(pixels, 0, q[(qHead + qCount) % QN], 0, pixels.size)
+                qCount++
+            }
             track.write(buf, 0, chunk, AudioTrack.WRITE_BLOCKING)
-            synchronized(bmp) { bmp.setPixels(pixels, 0, sw, 0, 0, sw, sh) }
-            dirty = true
         }
         track.stop(); track.release()
     }
 
-    private fun drawLoop() {
-        Process.setThreadPriority(Process.THREAD_PRIORITY_DISPLAY)
-        while (running) {
-            if (!dirty) { Thread.sleep(2); continue }
-            dirty = false
+    private val vsync = object : android.view.Choreographer.FrameCallback {
+        override fun doFrame(t: Long) {
+            if (!running) return
+            android.view.Choreographer.getInstance().postFrameCallback(this)
+            val frameNs = 16_666_667L
+            if (lastT == 0L) lastT = t
+            acc += t - lastT; lastT = t
+            if (acc < frameNs - 1_500_000L) return
+            acc -= frameNs
+            if (acc > frameNs) acc = 0
+            synchronized(qLock) {
+                if (qCount > 0) {
+                    bmp.setPixels(q[qHead], 0, sw, 0, 0, sw, sh)
+                    qHead = (qHead + 1) % QN; qCount--
+                }
+            }
             val c = if (android.os.Build.VERSION.SDK_INT >= 26) holder.lockHardwareCanvas() else holder.lockCanvas()
             if (c != null) {
-                try { synchronized(bmp) { drawUi(c) } } finally { holder.unlockCanvasAndPost(c) }
+                try { drawUi(c) } finally { holder.unlockCanvasAndPost(c) }
             }
         }
     }
 
     override fun surfaceCreated(h: SurfaceHolder) {
         running = true
+        lastT = 0L; acc = 0L
+        synchronized(qLock) { qHead = 0; qCount = 0 }
         gameThread = Thread { gameLoop() }.also { it.start() }
-        drawThread = Thread { drawLoop() }.also { it.start() }
+        val ht = android.os.HandlerThread("render", Process.THREAD_PRIORITY_DISPLAY)
+        ht.start()
+        renderThread = ht
+        android.os.Handler(ht.looper).post {
+            android.view.Choreographer.getInstance().postFrameCallback(vsync)
+        }
     }
     override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, hh: Int) {}
     override fun surfaceDestroyed(h: SurfaceHolder) {
         running = false
-        gameThread?.join(); drawThread?.join()
+        gameThread?.join()
+        renderThread?.quitSafely(); renderThread?.join()
     }
 }
