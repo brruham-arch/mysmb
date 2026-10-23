@@ -16,7 +16,7 @@ jobs:
           bash .github/install-moon.sh
           echo "$HOME/.moon/bin" >> $GITHUB_PATH
       - name: Migrate moon module
-        run: moon version && moon update && moon add moonbitlang/x && moon fmt && cat moon.mod*
+        run: bash .github/moon-prep.sh
       - name: Generate game C from ROM
         run: make codegen ROM=smb.nes
       - name: ROM as app asset
