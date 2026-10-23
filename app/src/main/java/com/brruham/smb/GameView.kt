@@ -87,7 +87,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
         c.drawText(label, cx, cy + txt.textSize / 3f, txt)
     }
 
-    private fun draw(c: Canvas) {
+    private fun drawUi(c: Canvas) {
         c.drawColor(Color.BLACK)
         c.drawBitmap(bmp, null, gameRect, null)
         val m = mask
@@ -114,7 +114,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
             bmp.setPixels(pixels, 0, sw, 0, 0, sw, sh)
             val c = holder.lockCanvas()
             if (c != null) {
-                try { draw(c) } finally { holder.unlockCanvasAndPost(c) }
+                try { drawUi(c) } finally { holder.unlockCanvasAndPost(c) }
             }
             next += frameNs
             val d = next - System.nanoTime()
