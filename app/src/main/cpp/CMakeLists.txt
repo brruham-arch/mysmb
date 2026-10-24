@@ -5,11 +5,16 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -std=c99 -ffunction-sections -fdata-sect
 set(CMAKE_C_FLAGS_DEBUG "-O3")
 set(CMAKE_C_FLAGS_RELEASE "-O3")
 include_directories(${ROOT}/codegen ${ROOT}/codegen/game ${ROOT}/codegen/lib)
+file(GLOB LUA_SRC ${CMAKE_SOURCE_DIR}/lua/*.c)
+list(FILTER LUA_SRC EXCLUDE REGEX "/(onelua|lua|luac)\\.c$")
 add_library(smbcore SHARED
     jni_glue.c
     extra_enemies.c
+    lua_api.c
+    ${LUA_SRC}
     ${ROOT}/codegen/game/code.c
     ${ROOT}/codegen/game/data.c
+    ${ROOT}/codegen/game/api_tables.c
     ${ROOT}/codegen/lib/cpu.c
     ${ROOT}/codegen/lib/video.c
     ${ROOT}/codegen/lib/render.c

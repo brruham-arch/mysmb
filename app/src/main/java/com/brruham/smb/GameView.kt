@@ -160,7 +160,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
             if (acc > frameNs) acc = 0
             if (steps == 0) return
             if (t - tDbg > 1_000_000_000L) {
-                dbg = "f=${fSum / maxOf(fN, 1) / 10000 / 100.0}ms max=${fMax / 10000 / 100.0} n=$fN aud=$aFull"
+                dbg = "f=${fSum / maxOf(fN, 1) / 10000 / 100.0}ms max=${fMax / 10000 / 100.0} n=$fN aud=$aFull ${Core.luaStatus()}"
                 fMax = 0; fSum = 0; fN = 0; aFull = 0; tDbg = t
             }
             val c = if (android.os.Build.VERSION.SDK_INT >= 26) holder.lockHardwareCanvas() else holder.lockCanvas()

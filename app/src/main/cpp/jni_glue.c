@@ -7,6 +7,7 @@
 #include "lib/debug_chr.h"
 
 #define AUDIO_SAMPLE_RATE 48000
+void lua_set_dir(const char *p);
 void extra_run(void);
 void extra_test(void);
 void extra_overlay(uint8_t *o);
@@ -16,6 +17,7 @@ JNIEXPORT jint JNICALL Java_com_brruham_smb_Core_init(JNIEnv *env, jclass c, jst
     char buf[512];
     const char *p = (*env)->GetStringUTFChars(env, path, NULL);
     snprintf(buf, sizeof buf, "%s", p);
+    lua_set_dir(buf);
     (*env)->ReleaseStringUTFChars(env, path, p);
     cpu_init();
     apu_init(AUDIO_SAMPLE_RATE);

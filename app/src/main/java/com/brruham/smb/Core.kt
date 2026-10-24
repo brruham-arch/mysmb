@@ -9,4 +9,6 @@ object Core {
     external fun frame(out: IntArray)
     external fun audio(out: FloatArray, n: Int)
     external fun stats(): IntArray
+    external fun pushEvent(s: String)
+    external fun luaStatus(): String
 }
