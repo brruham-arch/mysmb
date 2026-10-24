@@ -91,7 +91,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
 
     private fun drawUi(c: Canvas) {
         c.drawColor(Color.BLACK)
-        &; c.drawText(dbg, c.width / 2f, gameRect.bottom + txt.textSize * 1.5f, txt)
+        c.drawBitmap(bmp, null, gameRect, null); c.drawText(dbg, c.width / 2f, gameRect.bottom + txt.textSize * 1.5f, txt)
         val m = mask
         btn(c, dpx, dpy - dr * 0.65f, dr * 0.32f, "^", m and UP != 0)
         btn(c, dpx, dpy + dr * 0.65f, dr * 0.32f, "v", m and DOWN != 0)
