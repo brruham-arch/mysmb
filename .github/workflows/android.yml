@@ -19,6 +19,8 @@ jobs:
         run: bash .github/moon-prep.sh
       - name: Generate game C from ROM
         run: make codegen ROM=smb.nes
+      - name: Show enemy loop
+        run: grep -n "update_enemies_and_loops" codegen/game/code.c | head -5; awk '/update_enemies_and_loops\(void\) *\{/,/^}/' codegen/game/code.c | head -150
       - name: ROM as app asset
         run: mkdir -p app/src/main/assets && cp smb.nes app/src/main/assets/smb.nes
       - uses: gradle/actions/setup-gradle@v4
