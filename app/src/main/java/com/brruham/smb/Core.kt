@@ -11,4 +11,5 @@ object Core {
     external fun stats(): IntArray
     external fun pushEvent(s: String)
     external fun luaStatus(): String
+    external fun luaLoad(s: String)
 }

@@ -116,6 +116,28 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
     @Volatile private var dbg = ""
     private var fMax = 0L; private var fSum = 0L; private var fN = 0
     private var aFull = 0; private var tDbg = 0L
+    private var pollN = 0
+    private var scriptStamp = -1L
+    private var permAsked = false
+    private fun pollScript() {
+        if (android.os.Build.VERSION.SDK_INT >= 30 && !android.os.Environment.isExternalStorageManager()) {
+            if (!permAsked) {
+                permAsked = true
+                try {
+                    val i = android.content.Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                        android.net.Uri.parse("package:" + context.packageName))
+                    i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(i)
+                } catch (e: Exception) {}
+            }
+            return
+        }
+        val f = java.io.File("/sdcard/SMB/main.lua")
+        if (f.canRead() && f.lastModified() != scriptStamp) {
+            scriptStamp = f.lastModified()
+            Core.luaLoad(f.readText())
+        }
+    }
 
     private fun makeTrack(): AudioTrack {
         val t = AudioTrack.Builder()
@@ -137,6 +159,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
     }
 
     private fun step() {
+        if (++pollN % 60 == 1) pollScript()
         val t0 = System.nanoTime()
         Core.frame(pixels)
         val dt = System.nanoTime() - t0

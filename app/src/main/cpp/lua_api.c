@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <stdlib.h>
 #include <pthread.h>
 #include <sys/stat.h>
 #include "lua/lua.h"
@@ -20,7 +21,7 @@ extern void extra_reset(void);
 
 static lua_State *L;
 static int ok;
-static char status[96] = "lua:off";
+static char status[96] = "lua:menunggu script";
 static char sfile[300];
 static char cur[300];
 static time_t mt;
@@ -134,7 +135,13 @@ static const luaL_Reg memlib[] = {
 static const luaL_Reg enemylib[] = {
     {"spawn", l_spawn}, {"count", l_ecount}, {"reset", l_ereset}, {NULL, NULL}};
 
-static void load(void) {
+static char *pending;
+static pthread_mutex_t pm = PTHREAD_MUTEX_INITIALIZER;
+static int hticks;
+static void hookfn(lua_State *s, lua_Debug *d) {
+    if (++hticks >= 2) luaL_error(s, "script terlalu lama");
+}
+static void load(const char *src) {
     if (L) lua_close(L);
     ok = 0;
     L = luaL_newstate();
@@ -149,18 +156,9 @@ static void load(void) {
         lua_pop(L, 1);
         return;
     }
-    const char *cands[2] = {"/sdcard/SMB/main.lua", sfile};
-    cur[0] = 0;
-    for (int i = 0; i < 2; i++) {
-        struct stat st;
-        if (cands[i][0] && stat(cands[i], &st) == 0) {
-            snprintf(cur, sizeof cur, "%s", cands[i]);
-            mt = st.st_mtime;
-            break;
-        }
-    }
-    if (!cur[0]) { snprintf(status, sizeof status, "lua:no main.lua"); return; }
-    if (luaL_dofile(L, cur)) {
+    hticks = 0;
+    lua_sethook(L, hookfn, LUA_MASKCOUNT, 1000000);
+    if (luaL_dostring(L, src)) {
         const char *m = lua_tostring(L, -1);
         snprintf(status, sizeof status, "lua:ERR %.80s", m ? m : "?");
         lua_pop(L, 1);
@@ -173,6 +171,7 @@ static void run_hook(const char *name, const char *arg) {
     lua_getglobal(L, name);
     if (!lua_isfunction(L, -1)) { lua_pop(L, 1); return; }
     int n = 0;
+    hticks = 0;
     if (arg) { lua_pushstring(L, arg); n = 1; }
     if (lua_pcall(L, n, 0, 0)) {
         const char *m = lua_tostring(L, -1);
@@ -181,19 +180,14 @@ static void run_hook(const char *name, const char *arg) {
         ok = 0;
     }
 }
-void lua_set_dir(const char *rom) {
-    snprintf(sfile, sizeof sfile, "%s", rom);
-    char *sl = strrchr(sfile, '/');
-    if (sl) { sl[1] = 0; strncat(sfile, "scripts/main.lua", sizeof sfile - strlen(sfile) - 1); }
-    else sfile[0] = 0;
-}
+void lua_set_dir(const char *rom) { (void)rom; }
 void lua_frame(void) {
     uint8_t sa = a, sx = x, sy = y;
-    if (!L) load();
-    if (++fcount % 60 == 0) {
-        struct stat st;
-        if (!cur[0] || (stat(cur, &st) == 0 && st.st_mtime != mt)) { extra_reset(); load(); }
-    }
+    char *src;
+    pthread_mutex_lock(&pm);
+    src = pending; pending = NULL;
+    pthread_mutex_unlock(&pm);
+    if (src) { extra_reset(); load(src); free(src); }
     if (ok) {
         char ev[16][128]; int n;
         pthread_mutex_lock(&qm);
@@ -203,6 +197,14 @@ void lua_frame(void) {
         if (ok) run_hook("on_frame", NULL);
     }
     a = sa; x = sx; y = sy;
+}
+JNIEXPORT void JNICALL Java_com_brruham_smb_Core_luaLoad(JNIEnv *env, jobject c, jstring js) {
+    const char *t = (*env)->GetStringUTFChars(env, js, NULL);
+    char *cp = strdup(t);
+    (*env)->ReleaseStringUTFChars(env, js, t);
+    pthread_mutex_lock(&pm);
+    free(pending); pending = cp;
+    pthread_mutex_unlock(&pm);
 }
 JNIEXPORT void JNICALL Java_com_brruham_smb_Core_pushEvent(JNIEnv *env, jobject c, jstring js) {
     const char *t = (*env)->GetStringUTFChars(env, js, NULL);
