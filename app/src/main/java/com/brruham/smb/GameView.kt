@@ -75,6 +75,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
     override fun onTouchEvent(e: MotionEvent): Boolean {
         var m = 0
         val act = e.actionMasked
+        if (act == MotionEvent.ACTION_DOWN && e.y > gameRect.bottom && e.y < gameRect.bottom + txt.textSize * 2.5f) showDbg = !showDbg
         val ended = act == MotionEvent.ACTION_UP || act == MotionEvent.ACTION_CANCEL
         if (!ended) {
             for (i in 0 until e.pointerCount) {
@@ -95,7 +96,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
 
     private fun drawUi(c: Canvas) {
         c.drawColor(Color.BLACK)
-        c.drawBitmap(bmp, null, gameRect, null); c.drawText(dbg, c.width / 2f, gameRect.bottom + txt.textSize * 1.5f, txt)
+        c.drawBitmap(bmp, null, gameRect, null); if (showDbg) c.drawText(dbg, c.width / 2f, gameRect.bottom + txt.textSize * 1.5f, txt)
         val m = mask
         btn(c, dpx, dpy - dr * 0.65f, dr * 0.32f, "^", m and UP != 0)
         btn(c, dpx, dpy + dr * 0.65f, dr * 0.32f, "v", m and DOWN != 0)
@@ -120,6 +121,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
     private var lastT = 0L
     private var acc = 0L
     @Volatile private var dbg = ""
+    @Volatile private var showDbg = true
     private var fMax = 0L; private var fSum = 0L; private var fN = 0
     private var aFull = 0; private var tDbg = 0L
     private var pollN = 0
@@ -189,7 +191,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
             if (acc > frameNs) acc = 0
             if (steps == 0) return
             if (t - tDbg > 1_000_000_000L) {
-                dbg = "f=${fSum / maxOf(fN, 1) / 10000 / 100.0}ms max=${fMax / 10000 / 100.0} n=$fN aud=$aFull ${Core.luaStatus()}"
+                dbg = Core.luaStatus()
                 fMax = 0; fSum = 0; fN = 0; aFull = 0; tDbg = t
             }
             val c = if (android.os.Build.VERSION.SDK_INT >= 26) holder.lockHardwareCanvas() else holder.lockCanvas()
