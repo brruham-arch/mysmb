@@ -11,6 +11,7 @@
 #include "lua/lualib.h"
 #include "cpu.h"
 #include "prelude2.h"
+#include "prelude3.h"
 
 typedef struct { const char *n; uint16_t a; uint16_t sz; } VarEnt;
 typedef struct { const char *n; void (*f)(void); } RtnEnt;
@@ -151,7 +152,7 @@ static void load(const char *src) {
     luaL_newlib(L, enemylib); lua_setglobal(L, "enemy");
     lua_pushcfunction(L, l_call); lua_setglobal(L, "call");
     lua_pushcfunction(L, l_log);  lua_setglobal(L, "log");
-    if (luaL_dostring(L, PRELUDE) || luaL_dostring(L, PRELUDE2)) {
+    if (luaL_dostring(L, PRELUDE) || luaL_dostring(L, PRELUDE2) || luaL_dostring(L, PRELUDE3)) {
         const char *m = lua_tostring(L, -1);
         snprintf(status, sizeof status, "lua:prelude %.70s", m ? m : "?");
         lua_pop(L, 1);
@@ -195,7 +196,7 @@ void lua_frame(void) {
         n = qn; memcpy(ev, q, sizeof q); qn = 0;
         pthread_mutex_unlock(&qm);
         for (int i = 0; i < n && ok; i++) run_hook("on_event", ev[i]);
-        if (ok) run_hook("on_frame", NULL);
+        if (ok) { run_hook("__tick", NULL); if (ok) run_hook("on_frame", NULL); }
     }
     a = sa; x = sx; y = sy;
 }
