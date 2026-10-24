@@ -91,7 +91,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
 
     private fun drawUi(c: Canvas) {
         c.drawColor(Color.BLACK)
-        c.drawBitmap(bmp, null, gameRect, null)
+        &; c.drawText(dbg, c.width / 2f, gameRect.bottom + txt.textSize * 1.5f, txt)
         val m = mask
         btn(c, dpx, dpy - dr * 0.65f, dr * 0.32f, "^", m and UP != 0)
         btn(c, dpx, dpy + dr * 0.65f, dr * 0.32f, "v", m and DOWN != 0)
@@ -116,6 +116,8 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
     private var renderThread: android.os.HandlerThread? = null
     private var lastT = 0L
     private var acc = 0L
+    @Volatile private var dbg = ""
+    private var fMax = 0L; private var fSum = 0L; private var fN = 0; private var tDbg = 0L
 
     private fun gameLoop() {
         Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
@@ -138,7 +140,12 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
         track.write(silence, 0, chunk, AudioTrack.WRITE_NON_BLOCKING)
         track.play()
         while (running) {
+            val t0 = System.nanoTime()
             Core.frame(pixels)
+            val dt = System.nanoTime() - t0
+            if (dt > fMax) fMax = dt
+            fSum += dt; fN++
+            if (t0 - tDbg > 1_000_000_000L) { val s = Core.stats(); dbg = "frame avg=${fSum / fN / 10000 / 100.0}ms max=${fMax / 10000 / 100.0}ms n=$fN extra=${s[0]} spr=${s[1]}"; fMax = 0; fSum = 0; fN = 0; tDbg = t0 }
             Core.audio(buf, chunk)
             synchronized(qLock) {
                 if (qCount == QN) { qHead = (qHead + 1) % QN; qCount-- }

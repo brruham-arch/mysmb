@@ -8,4 +8,5 @@ object Core {
     external fun input(mask: Int)
     external fun frame(out: IntArray)
     external fun audio(out: FloatArray, n: Int)
+    external fun stats(): IntArray
 }

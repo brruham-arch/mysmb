@@ -58,3 +58,11 @@ JNIEXPORT void JNICALL Java_com_brruham_smb_Core_audio(JNIEnv *env, jclass c, jf
     apu_render(tmp, (size_t)n);
     (*env)->SetFloatArrayRegion(env, out, 0, n, tmp);
 }
+int extra_count(void);
+JNIEXPORT jintArray JNICALL Java_com_brruham_smb_Core_stats(JNIEnv *env, jclass c) {
+    jint s[2]; s[0] = extra_count(); s[1] = 0;
+    for (int i = 0; i < 64; i++) if (video.oam[i * 4] < 0xef) s[1]++;
+    jintArray r = (*env)->NewIntArray(env, 2);
+    (*env)->SetIntArrayRegion(env, r, 0, 2, s);
+    return r;
+}

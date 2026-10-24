@@ -50,3 +50,4 @@ void extra_run(void) {
     }
     last_n = n < 8 ? n : 8;
 }
+int extra_count(void) { int n = 0; for (int i = 0; i < MAXE; i++) n += ex[i].used; return n; }
