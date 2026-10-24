@@ -108,54 +108,44 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
         c.drawText("START", startRect.centerX(), startRect.centerY() + txt.textSize / 3f, txt)
     }
 
-    private val QN = 4
-    private val q = Array(QN) { IntArray(sw * sh) }
-    private var qHead = 0
-    private var qCount = 0
-    private val qLock = Any()
+    private var track: AudioTrack? = null
+    private val abuf = FloatArray(800)
     private var renderThread: android.os.HandlerThread? = null
     private var lastT = 0L
     private var acc = 0L
-    @Volatile private var qDrop = 0
     @Volatile private var dbg = ""
-    private var fMax = 0L; private var fSum = 0L; private var fN = 0; private var tDbg = 0L
+    private var fMax = 0L; private var fSum = 0L; private var fN = 0
+    private var aFull = 0; private var tDbg = 0L
 
-    private fun gameLoop() {
-        Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
-        val rate = 48000
-        val chunk = 800
-        val track = AudioTrack.Builder()
+    private fun makeTrack(): AudioTrack {
+        val t = AudioTrack.Builder()
             .setAudioAttributes(AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_GAME)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
             .setAudioFormat(AudioFormat.Builder()
                 .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
-                .setSampleRate(rate)
+                .setSampleRate(48000)
                 .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
-            .setBufferSizeInBytes(chunk * 4 * 6)
+            .setBufferSizeInBytes(800 * 4 * 8)
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
-        val buf = FloatArray(chunk)
-        val silence = FloatArray(chunk)
-        track.write(silence, 0, chunk, AudioTrack.WRITE_NON_BLOCKING)
-        track.write(silence, 0, chunk, AudioTrack.WRITE_NON_BLOCKING)
-        track.play()
-        while (running) {
-            val t0 = System.nanoTime()
-            Core.frame(pixels)
-            val dt = System.nanoTime() - t0
-            if (dt > fMax) fMax = dt
-            fSum += dt; fN++
-            if (t0 - tDbg > 1_000_000_000L) { val s = Core.stats(); dbg = "frame avg=${fSum / fN / 10000 / 100.0}ms max=${fMax / 10000 / 100.0}ms n=$fN drop=$qDrop extra=${s[0]} spr=${s[1]}"; fMax = 0; fSum = 0; fN = 0; qDrop = 0; tDbg = t0 }
-            Core.audio(buf, chunk)
-            synchronized(qLock) {
-                if (qCount == QN) { qHead = (qHead + 1) % QN; qCount--; qDrop++ }
-                System.arraycopy(pixels, 0, q[(qHead + qCount) % QN], 0, pixels.size)
-                qCount++
-            }
-            track.write(buf, 0, chunk, AudioTrack.WRITE_BLOCKING)
-        }
-        track.stop(); track.release()
+        val silence = FloatArray(800)
+        t.write(silence, 0, 800, AudioTrack.WRITE_NON_BLOCKING)
+        t.write(silence, 0, 800, AudioTrack.WRITE_NON_BLOCKING)
+        t.play()
+        return t
+    }
+
+    private fun step() {
+        val t0 = System.nanoTime()
+        Core.frame(pixels)
+        val dt = System.nanoTime() - t0
+        if (dt > fMax) fMax = dt
+        fSum += dt; fN++
+        Core.audio(abuf, 800)
+        val w = track?.write(abuf, 0, 800, AudioTrack.WRITE_NON_BLOCKING) ?: 800
+        if (w < 800) aFull++
+        bmp.setPixels(pixels, 0, sw, 0, 0, sw, sh)
     }
 
     private val vsync = object : android.view.Choreographer.FrameCallback {
@@ -165,14 +155,13 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
             val frameNs = 16_666_667L
             if (lastT == 0L) lastT = t
             acc += t - lastT; lastT = t
-            if (acc < frameNs - 1_500_000L) return
-            acc -= frameNs
+            var steps = 0
+            while (acc >= frameNs - 2_000_000L && steps < 2) { acc -= frameNs; steps++; step() }
             if (acc > frameNs) acc = 0
-            synchronized(qLock) {
-                if (qCount > 0) {
-                    bmp.setPixels(q[qHead], 0, sw, 0, 0, sw, sh)
-                    qHead = (qHead + 1) % QN; qCount--
-                }
+            if (steps == 0) return
+            if (t - tDbg > 1_000_000_000L) {
+                dbg = "f=${fSum / maxOf(fN, 1) / 10000 / 100.0}ms max=${fMax / 10000 / 100.0} n=$fN aud=$aFull"
+                fMax = 0; fSum = 0; fN = 0; aFull = 0; tDbg = t
             }
             val c = if (android.os.Build.VERSION.SDK_INT >= 26) holder.lockHardwareCanvas() else holder.lockCanvas()
             if (c != null) {
@@ -184,8 +173,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
     override fun surfaceCreated(h: SurfaceHolder) {
         running = true
         lastT = 0L; acc = 0L
-        synchronized(qLock) { qHead = 0; qCount = 0 }
-        gameThread = Thread { gameLoop() }.also { it.start() }
+        track = makeTrack()
         val ht = android.os.HandlerThread("render", Process.THREAD_PRIORITY_DISPLAY)
         ht.start()
         renderThread = ht
@@ -196,7 +184,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
     override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, hh: Int) {}
     override fun surfaceDestroyed(h: SurfaceHolder) {
         running = false
-        gameThread?.join()
         renderThread?.quitSafely(); renderThread?.join()
+        track?.stop(); track?.release(); track = null
     }
 }
