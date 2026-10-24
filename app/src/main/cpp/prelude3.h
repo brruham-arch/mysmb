@@ -34,4 +34,28 @@ function player.big() player.powerup(1) end
 function player.small() player.powerup(0) end
 function player.fire() player.powerup(2) end
 function player.status() return mem.peek(0x756) end
+item = {}
+local KIND = {mushroom=0, flower=1, star=2, ["1up"]=3}
+function item.spawn(kind, wx, y, force)
+  local t = KIND[kind] or kind
+  wx = math.floor(wx or (player.x() + 80))
+  if t < 2 and not force then t = math.min(mem.peek(0x756), 1) end
+  mem.poke(0x16 + 5, 0x2e)
+  mem.poke(0x6e + 5, math.floor(wx / 256) % 256)
+  mem.poke(0x87 + 5, wx % 256)
+  mem.poke(0xb6 + 5, 1)
+  mem.poke(0xcf + 5, ((y or 0xb0) + 16) % 256)
+  mem.poke(0x1e + 5, 1)
+  mem.poke(0x0f + 5, 1)
+  mem.poke(0x49a + 5, 3)
+  mem.poke(0x39, t)
+  mem.poke(0x3c5 + 5, 0x20)
+  mem.poke(0xfe, 2)
+end
+function item.give(kind)
+  if kind == "mushroom" then if player.status() == 0 then player.big() end
+  elseif kind == "flower" then player.fire()
+  elseif kind == "star" then player.star(12)
+  elseif kind == "1up" then V.lives = V.lives + 1 end
+end
 );
