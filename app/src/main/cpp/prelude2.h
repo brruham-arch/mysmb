@@ -17,6 +17,6 @@ function player.kill() mem.poke(0x0e, 11) end
 function hud.score(n) for i = 5, 0, -1 do V.player_score[i] = n % 10 n = math.floor(n / 10) end end
 function enemy.kill_all() for i = 0, 4 do mem.poke(0x0f + i, 0) end enemy.reset() end
 function player.star(sec) V.star_timer = math.min(255, math.ceil((sec or 12) * 60 / 21)) mem.poke(0xfb, 0x40) end
-function player.powerup(n) mem.poke(0x756, n) mem.poke(0x754, n == 0 and 1 or 0) local ok = pcall(function() R.get_player_colors{} end) if not ok then log("no get_player_colors") end end
+function player.powerup(n) mem.poke(0x756, n) mem.poke(0x754, n == 0 and 1 or 0) local ok = pcall(function() R.queue_player_colors{} end) if not ok then log("no queue_player_colors") end end
 function player.kill() mem.poke(0x57, 0) mem.poke(0xfc, 1) mem.poke(0x9f, 0xfc) mem.poke(0x0e, 11) mem.poke(0x1d, 1) mem.poke(0x747, 255) mem.poke(0x775, 0) end
 );
