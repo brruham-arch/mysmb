@@ -20,6 +20,7 @@ extern const RtnEnt api_rtns[];
 extern int extra_spawn(uint8_t k, uint8_t pg, uint8_t px, uint8_t py);
 extern int extra_count(void);
 extern void extra_reset(void);
+#include "spawnat.h"
 
 static lua_State *L;
 static int ok;
@@ -135,7 +136,7 @@ static const luaL_Reg memlib[] = {
     {"get", l_get}, {"set", l_set}, {"size", l_size},
     {"peek", l_peek}, {"poke", l_poke}, {NULL, NULL}};
 static const luaL_Reg enemylib[] = {
-    {"spawn", l_spawn}, {"count", l_ecount}, {"reset", l_ereset}, {NULL, NULL}};
+    {"spawn", l_spawn}, {"spawn_at", l_spawn_at}, {"count", l_ecount}, {"reset", l_ereset}, {NULL, NULL}};
 
 static char *pending;
 static pthread_mutex_t pm = PTHREAD_MUTEX_INITIALIZER;
