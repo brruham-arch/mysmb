@@ -36,12 +36,15 @@ JNIEXPORT jint JNICALL Java_com_brruham_smb_Core_size(JNIEnv *env, jclass c) {
     return (jint)((SCREEN_WIDTH << 16) | SCREEN_HEIGHT);
 }
 
+extern uint8_t lua_input(uint32_t);
+static volatile uint32_t raw_in;
 JNIEXPORT void JNICALL Java_com_brruham_smb_Core_input(JNIEnv *env, jclass c, jint m) {
-    update_controller1((uint8_t)m);
+    raw_in = (uint32_t)m;
 }
 
 JNIEXPORT void JNICALL Java_com_brruham_smb_Core_frame(JNIEnv *env, jclass c, jintArray out) {
     static jint buf[256 * 240];
+    update_controller1(lua_input(raw_in));
     next_frame();
     //extra_test();
     //extra_run();

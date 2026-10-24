@@ -13,6 +13,7 @@ import android.view.SurfaceView
 class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
     private val RIGHT = 0x80; private val LEFT = 0x40; private val DOWN = 0x20; private val UP = 0x10
     private val START = 0x08; private val SELECT = 0x04; private val B = 0x02; private val A = 0x01
+    private var tax = 0f; private var tay = 0f; private var tbx = 0f; private var tby = 0f; private var tbr = 0f
 
     private val sz = Core.size()
     private val sw = sz shr 16
@@ -49,6 +50,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
         selRect = RectF(wf * 0.30f, ry - wf * 0.035f, wf * 0.48f, ry + wf * 0.035f)
         startRect = RectF(wf * 0.52f, ry - wf * 0.035f, wf * 0.70f, ry + wf * 0.035f)
         txt.textSize = wf * 0.04f
+        tax = ax; tay = ay - wf * 0.20f; tbx = bx; tby = by + wf * 0.20f; tbr = br * 0.75f
     }
 
     private fun maskAt(x: Float, y: Float): Int {
@@ -65,6 +67,8 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
         if ((x - bx) * (x - bx) + (y - by) * (y - by) < br * br * 1.5f) m = m or B
         if (selRect.contains(x, y)) m = m or SELECT
         if (startRect.contains(x, y)) m = m or START
+        if ((x - tax) * (x - tax) + (y - tay) * (y - tay) < tbr * tbr * 1.5f) m = m or 0x100
+        if ((x - tbx) * (x - tbx) + (y - tby) * (y - tby) < tbr * tbr * 1.5f) m = m or 0x200
         return m
     }
 
@@ -98,6 +102,8 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
         btn(c, dpx - dr * 0.65f, dpy, dr * 0.32f, "<", m and LEFT != 0)
         btn(c, dpx + dr * 0.65f, dpy, dr * 0.32f, ">", m and RIGHT != 0)
         btn(c, ax, ay, br, "A", m and A != 0)
+        btn(c, tax, tay, tbr, "TA", m and 0x100 != 0)
+        btn(c, tbx, tby, tbr, "TB", m and 0x200 != 0)
         btn(c, bx, by, br, "B", m and B != 0)
         fill.color = Color.WHITE
         fill.alpha = if (m and SELECT != 0) 110 else 40

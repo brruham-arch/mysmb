@@ -141,6 +141,7 @@ static const luaL_Reg enemylib[] = {
 static char *pending;
 static pthread_mutex_t pm = PTHREAD_MUTEX_INITIALIZER;
 static int hticks;
+#include "inputapi.h"
 static void hookfn(lua_State *s, lua_Debug *d) {
     if (++hticks >= 2) luaL_error(s, "script terlalu lama");
 }
@@ -151,6 +152,7 @@ static void load(const char *src) {
     luaL_openlibs(L);
     luaL_newlib(L, memlib);   lua_setglobal(L, "mem");
     luaL_newlib(L, enemylib); lua_setglobal(L, "enemy");
+    luaL_newlib(L, inputlib); lua_setglobal(L, "input");
     lua_pushcfunction(L, l_call); lua_setglobal(L, "call");
     lua_pushcfunction(L, l_log);  lua_setglobal(L, "log");
     if (luaL_dostring(L, PRELUDE) || luaL_dostring(L, PRELUDE2) || luaL_dostring(L, PRELUDE3)) {
