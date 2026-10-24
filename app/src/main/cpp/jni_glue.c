@@ -9,6 +9,8 @@
 #define AUDIO_SAMPLE_RATE 48000
 void extra_run(void);
 void extra_test(void);
+void extra_overlay(uint8_t *o);
+void extra_restore(uint8_t *o);
 
 JNIEXPORT jint JNICALL Java_com_brruham_smb_Core_init(JNIEnv *env, jclass c, jstring path) {
     char buf[512];
@@ -41,7 +43,9 @@ JNIEXPORT void JNICALL Java_com_brruham_smb_Core_frame(JNIEnv *env, jclass c, ji
     next_frame();
     //extra_test();
     //extra_run();
+    extra_overlay(video.oam);
     render_frame();
+    extra_restore(video.oam);
     sound_end_frame();
     const uint8_t *f = (const uint8_t *)frame;
     int n = SCREEN_WIDTH * SCREEN_HEIGHT;
