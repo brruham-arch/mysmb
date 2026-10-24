@@ -58,4 +58,11 @@ function item.give(kind)
   elseif kind == "star" then player.star(12)
   elseif kind == "1up" then V.lives = V.lives + 1 end
 end
+function item.spawn(kind, wx, y, force)
+  local t = KIND[kind] or kind
+  wx = math.floor(wx or (player.x() + 80))
+  if t < 2 and not force then t = math.min(mem.peek(0x756), 1) end
+  return enemy.item_at(t, wx, y or 0xb0)
+end
+function item.count() return enemy.item_count() end
 );

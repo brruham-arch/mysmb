@@ -3,28 +3,31 @@
 #include "cpu.h"
 extern void update_enemies_and_loops(void);
 extern void init_enemy(void);
+extern void update_powerup(void);
 #define SLOT 4
+#define ISLOT 5
 #define NF 20
 #define MAXE 48
 #define SCR 0xe8
-#define BOX (0x4b0 + 4 * SLOT)
 static const uint16_t FA[NF] = {0x0f,0x16,0x1e,0x46,0x58,0x6e,0x87,0xa0,0xb6,0xcf,
   0x3c5,0x401,0x417,0x434,0x491,0x49a,0x78a,0x796,0x6e5,0x3c};
-typedef struct { uint8_t used, v[NF], box[4], spr[24]; } Ex;
+typedef struct { uint8_t used, item, ptype, v[NF], box[4], spr[24]; } Ex;
 static Ex ex[MAXE];
 
-static void put(const Ex *e) { for (int i = 0; i < NF; i++) ram[FA[i] + SLOT] = e->v[i]; memcpy(&ram[BOX], e->box, 4); }
-static void get(Ex *e) { for (int i = 0; i < NF; i++) e->v[i] = ram[FA[i] + SLOT]; memcpy(e->box, &ram[BOX], 4); }
+static void put(const Ex *e, int sl) { for (int i = 0; i < NF; i++) ram[FA[i] + sl] = e->v[i]; memcpy(&ram[0x4b0 + 4 * sl], e->box, 4); }
+static void get(Ex *e, int sl) { for (int i = 0; i < NF; i++) e->v[i] = ram[FA[i] + sl]; memcpy(e->box, &ram[0x4b0 + 4 * sl], 4); }
 static void call(Ex *e, int init) {
+    int sl = e->item ? ISLOT : SLOT;
     uint8_t bak[24]; memcpy(bak, &ram[0x200 + SCR], 24);
-    Ex keep; get(&keep);
-    uint8_t s8 = ram[8], xr = x;
+    Ex keep; get(&keep, sl);
+    uint8_t s8 = ram[8], xr = x, pt = ram[0x39];
     e->v[18] = SCR;
-    put(e); ram[8] = SLOT; x = SLOT;
-    if (init) init_enemy(); else update_enemies_and_loops();
+    put(e, sl); ram[8] = (uint8_t)sl; x = (uint8_t)sl;
+    if (e->item) { ram[0x39] = e->ptype; if (!init) update_powerup(); }
+    else if (init) init_enemy(); else update_enemies_and_loops();
     if (!init) memcpy(e->spr, &ram[0x200 + SCR], 24);
-    get(e);
-    put(&keep); ram[8] = s8; x = xr;
+    get(e, sl);
+    put(&keep, sl); ram[8] = s8; x = xr; ram[0x39] = pt;
     memcpy(&ram[0x200 + SCR], bak, 24);
 }
 static int extra_spawn_raw(uint8_t kind, uint8_t page, uint8_t px, uint8_t py) {
@@ -33,6 +36,18 @@ static int extra_spawn_raw(uint8_t kind, uint8_t page, uint8_t px, uint8_t py) {
         memset(e->spr, 0xf8, 24);
         e->v[0] = 1; e->v[1] = kind; e->v[5] = page; e->v[6] = px; e->v[8] = 1; e->v[9] = py;
         call(e, 1);
+        return i;
+    }
+    return -1;
+}
+int extra_item_spawn(uint8_t type, uint8_t page, uint8_t px, uint8_t py) {
+    for (int i = 0; i < MAXE; i++) if (!ex[i].used) {
+        Ex *e = &ex[i]; memset(e, 0, sizeof *e);
+        e->used = 1; e->item = 1; e->ptype = type;
+        memset(e->spr, 0xf8, 24);
+        e->v[0] = 1; e->v[1] = 0x2e; e->v[2] = 1; e->v[5] = page; e->v[6] = px;
+        e->v[8] = 1; e->v[9] = (uint8_t)(py + 16); e->v[10] = 0x20; e->v[15] = 3;
+        ram[0xfe] = 2;
         return i;
     }
     return -1;
@@ -60,13 +75,9 @@ int extra_spawn(uint8_t kind, uint8_t page, uint8_t px, uint8_t py) {
     }
     return -1;
 }
-int extra_count(void) { int n = 0; for (int i = 0; i < MAXE; i++) n += ex[i].used; return n; }
-void extra_test(void) {
-    static unsigned n; if (++n % 90) return;
-    if (extra_count() >= 16) return;
-    unsigned xx = ram[0x86] + 120;
-    extra_spawn(0x06, (uint8_t)(ram[0x6d] + (xx >> 8)), (uint8_t)xx, 0xb0);
-}
+int extra_count(void) { int n = 0; for (int i = 0; i < MAXE; i++) n += (ex[i].used && !ex[i].item); return n; }
+int extra_item_count(void) { int n = 0; for (int i = 0; i < MAXE; i++) n += (ex[i].used && ex[i].item); return n; }
+void extra_test(void) {}
 void extra_reset(void) { memset(ex, 0, sizeof ex); }
 void extra_run(void) {
     static unsigned tick; tick++;
