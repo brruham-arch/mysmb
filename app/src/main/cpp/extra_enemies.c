@@ -23,7 +23,7 @@ static void call(Ex *e, int init) {
     get(e);
     put(&keep); ram[8] = s8; x = xr;
 }
-int extra_spawn(uint8_t kind, uint8_t page, uint8_t px, uint8_t py) {
+static int extra_spawn_raw(uint8_t kind, uint8_t page, uint8_t px, uint8_t py) {
     for (int i = 0; i < MAXE; i++) if (!ex[i].used) {
         Ex *e = &ex[i]; memset(e, 0, sizeof *e); e->used = 1;
         e->v[0] = 1; e->v[1] = kind; e->v[5] = page; e->v[6] = px; e->v[8] = 1; e->v[9] = py;
@@ -32,11 +32,6 @@ int extra_spawn(uint8_t kind, uint8_t page, uint8_t px, uint8_t py) {
         return i;
     }
     return -1;
-}
-void extra_test(void) {
-    static unsigned n; if (++n % 90) return;
-    unsigned xx = ram[0x86] + 120;
-    extra_spawn(0x06, (uint8_t)(ram[0x6d] + (xx >> 8)), (uint8_t)xx, 0xb0);
 }
 static int last_n;
 void extra_run(void) {
@@ -54,3 +49,31 @@ void extra_run(void) {
 }
 int extra_count(void) { int n = 0; for (int i = 0; i < MAXE; i++) n += ex[i].used; return n; }
 void extra_reset(void) { memset(ex, 0, sizeof ex); last_n = 0; }
+static int mt(uint8_t page, uint8_t px, int row) {
+    if (row < 0 || row > 12) return 0;
+    return ram[((page & 1) ? 0x5d0 : 0x500) + row * 16 + (px >> 4)];
+}
+static int solid(uint8_t v) {
+    static const uint8_t thr[4] = {0x10, 0x61, 0x88, 0xc4};
+    return v >= thr[v >> 6];
+}
+static int blocked(unsigned page, unsigned px, uint8_t py) {
+    int row = ((int)py - 0x10) >> 4;
+    unsigned x2 = px + 15;
+    if (solid((uint8_t)mt((uint8_t)(page + (px >> 8)), (uint8_t)px, row))) return 1;
+    if (solid((uint8_t)mt((uint8_t)(page + (x2 >> 8)), (uint8_t)x2, row))) return 1;
+    return 0;
+}
+int extra_spawn(uint8_t kind, uint8_t page, uint8_t px, uint8_t py) {
+    for (int k = 0; k < 10; k++) {
+        unsigned xx = px + 16u * k;
+        unsigned pg = page + (xx >> 8);
+        if (!blocked(pg, xx & 0xff, py)) return extra_spawn_raw(kind, (uint8_t)pg, (uint8_t)xx, py);
+    }
+    return -1;
+}
+void extra_test(void) {
+    static unsigned n; if (++n % 90) return;
+    unsigned xx = ram[0x86] + 120;
+    extra_spawn(0x06, (uint8_t)(ram[0x6d] + (xx >> 8)), (uint8_t)xx, 0xb0);
+}
