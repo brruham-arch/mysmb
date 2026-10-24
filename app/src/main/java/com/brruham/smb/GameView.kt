@@ -116,6 +116,7 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
     private var renderThread: android.os.HandlerThread? = null
     private var lastT = 0L
     private var acc = 0L
+    @Volatile private var qDrop = 0
     @Volatile private var dbg = ""
     private var fMax = 0L; private var fSum = 0L; private var fN = 0; private var tDbg = 0L
 
@@ -145,10 +146,10 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
             val dt = System.nanoTime() - t0
             if (dt > fMax) fMax = dt
             fSum += dt; fN++
-            if (t0 - tDbg > 1_000_000_000L) { val s = Core.stats(); dbg = "frame avg=${fSum / fN / 10000 / 100.0}ms max=${fMax / 10000 / 100.0}ms n=$fN extra=${s[0]} spr=${s[1]}"; fMax = 0; fSum = 0; fN = 0; tDbg = t0 }
+            if (t0 - tDbg > 1_000_000_000L) { val s = Core.stats(); dbg = "frame avg=${fSum / fN / 10000 / 100.0}ms max=${fMax / 10000 / 100.0}ms n=$fN drop=$qDrop extra=${s[0]} spr=${s[1]}"; fMax = 0; fSum = 0; fN = 0; qDrop = 0; tDbg = t0 }
             Core.audio(buf, chunk)
             synchronized(qLock) {
-                if (qCount == QN) { qHead = (qHead + 1) % QN; qCount-- }
+                if (qCount == QN) { qHead = (qHead + 1) % QN; qCount--; qDrop++ }
                 System.arraycopy(pixels, 0, q[(qHead + qCount) % QN], 0, pixels.size)
                 qCount++
             }

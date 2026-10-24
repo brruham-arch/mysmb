@@ -39,8 +39,8 @@ JNIEXPORT void JNICALL Java_com_brruham_smb_Core_input(JNIEnv *env, jclass c, ji
 JNIEXPORT void JNICALL Java_com_brruham_smb_Core_frame(JNIEnv *env, jclass c, jintArray out) {
     static jint buf[256 * 240];
     next_frame();
-    extra_test();
-    extra_run();
+    //extra_test();
+    //extra_run();
     render_frame();
     sound_end_frame();
     const uint8_t *f = (const uint8_t *)frame;
