@@ -4,10 +4,10 @@
 extern void update_enemies_and_loops(void);
 extern void init_enemy(void);
 #define SLOT 4
-#define NF 24
+#define NF 20
 #define MAXE 32
 static const uint16_t FA[NF] = {0x0f,0x16,0x1e,0x46,0x58,0x6e,0x87,0xa0,0xb6,0xcf,
-  0x3ae,0x3b9,0x3c5,0x3d1,0x3d8,0x401,0x417,0x434,0x491,0x49a,0x78a,0x796,0x6e5,0x3c};
+  0x3c5,0x401,0x417,0x434,0x491,0x49a,0x78a,0x796,0x6e5,0x3c};
 #define BOX (0x4b0 + 4 * SLOT)
 typedef struct { uint8_t used, v[NF], box[4]; } Ex;
 static Ex ex[MAXE];
@@ -27,8 +27,8 @@ int extra_spawn(uint8_t kind, uint8_t page, uint8_t px, uint8_t py) {
     for (int i = 0; i < MAXE; i++) if (!ex[i].used) {
         Ex *e = &ex[i]; memset(e, 0, sizeof *e); e->used = 1;
         e->v[0] = 1; e->v[1] = kind; e->v[5] = page; e->v[6] = px; e->v[8] = 1; e->v[9] = py;
-        e->v[22] = 0xe8;
-        call(e, 1); e->v[22] = 0xe8;
+        e->v[18] = 0xe8;
+        call(e, 1); e->v[18] = 0xe8;
         return i;
     }
     return -1;
@@ -44,7 +44,7 @@ void extra_run(void) {
         for (int j = 0; j < 24; j += 4) ram[0x200 + 0xe8 - 24 * k + j] = 0xf8;
     int n = 0;
     for (int i = 0; i < MAXE; i++) if (ex[i].used) {
-        ex[i].v[22] = (uint8_t)(0xe8 - 24 * (n < 8 ? n : 7)); n++;
+        ex[i].v[18] = (uint8_t)(0xe8 - 24 * (n < 8 ? n : 7)); n++;
         call(&ex[i], 0);
         if (!ex[i].v[0]) ex[i].used = 0;
     }
