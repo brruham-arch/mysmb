@@ -33,22 +33,7 @@ static int extra_spawn_raw(uint8_t kind, uint8_t page, uint8_t px, uint8_t py) {
     }
     return -1;
 }
-static int last_n;
-void extra_run(void) {
-    static unsigned tick; tick++;
-    for (int k = 0; k < last_n; k++)
-        for (int j = 0; j < 24; j += 4) ram[0x200 + 0xe8 - 24 * k + j] = 0xf8;
-    int n = 0;
-    for (int i = 0; i < MAXE; i++) if (ex[i].used) {
-        ex[i].v[18] = (uint8_t)(0xe8 - 24 * (n < 8 ? n : 7)); n++;
-        if (ex[i].v[16]) ex[i].v[16]--; if (tick % 21 == 0 && ex[i].v[17]) ex[i].v[17]--;
-        call(&ex[i], 0);
-        if (!ex[i].v[0]) ex[i].used = 0;
-    }
-    last_n = n < 8 ? n : 8;
-}
 int extra_count(void) { int n = 0; for (int i = 0; i < MAXE; i++) n += ex[i].used; return n; }
-void extra_reset(void) { memset(ex, 0, sizeof ex); last_n = 0; }
 static int mt(uint8_t page, uint8_t px, int row) {
     if (row < 0 || row > 12) return 0;
     return ram[((page & 1) ? 0x5d0 : 0x500) + row * 16 + (px >> 4)];
@@ -76,4 +61,32 @@ void extra_test(void) {
     static unsigned n; if (++n % 90) return;
     unsigned xx = ram[0x86] + 120;
     extra_spawn(0x06, (uint8_t)(ram[0x6d] + (xx >> 8)), (uint8_t)xx, 0xb0);
+}
+static uint8_t prev[MAXE];
+static int last_n;
+void extra_reset(void) { memset(ex, 0, sizeof ex); last_n = 0; }
+static int free_block(void) {
+    for (int o = 0xe8; o >= 0; o -= 4) {
+        int ok = 1;
+        for (int s = 0; s < 6; s++) if (ram[0x200 + o + 4 * s] < 0xef) { ok = 0; break; }
+        if (ok) return o;
+    }
+    return -1;
+}
+void extra_run(void) {
+    static unsigned tick; tick++;
+    for (int k = 0; k < last_n; k++)
+        for (int s = 0; s < 6; s++) ram[0x200 + prev[k] + 4 * s] = 0xf8;
+    int n = 0;
+    for (int i = 0; i < MAXE; i++) if (ex[i].used) {
+        int o = free_block();
+        if (o < 0) continue;
+        ex[i].v[18] = (uint8_t)o;
+        if (ex[i].v[16]) ex[i].v[16]--;
+        if (tick % 21 == 0 && ex[i].v[17]) ex[i].v[17]--;
+        call(&ex[i], 0);
+        if (!ex[i].v[0]) ex[i].used = 0;
+        prev[n++] = (uint8_t)o;
+    }
+    last_n = n;
 }
