@@ -40,14 +40,17 @@ void extra_test(void) {
 }
 static int last_n;
 void extra_run(void) {
+    static unsigned tick; tick++;
     for (int k = 0; k < last_n; k++)
         for (int j = 0; j < 24; j += 4) ram[0x200 + 0xe8 - 24 * k + j] = 0xf8;
     int n = 0;
     for (int i = 0; i < MAXE; i++) if (ex[i].used) {
         ex[i].v[18] = (uint8_t)(0xe8 - 24 * (n < 8 ? n : 7)); n++;
+        if (ex[i].v[16]) ex[i].v[16]--; if (tick % 21 == 0 && ex[i].v[17]) ex[i].v[17]--;
         call(&ex[i], 0);
         if (!ex[i].v[0]) ex[i].used = 0;
     }
     last_n = n < 8 ? n : 8;
 }
 int extra_count(void) { int n = 0; for (int i = 0; i < MAXE; i++) n += ex[i].used; return n; }
+void extra_reset(void) { memset(ex, 0, sizeof ex); last_n = 0; }
