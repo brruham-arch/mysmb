@@ -10,6 +10,7 @@
 #include "lua/lauxlib.h"
 #include "lua/lualib.h"
 #include "cpu.h"
+#include "prelude2.h"
 
 typedef struct { const char *n; uint16_t a; uint16_t sz; } VarEnt;
 typedef struct { const char *n; void (*f)(void); } RtnEnt;
@@ -150,7 +151,7 @@ static void load(const char *src) {
     luaL_newlib(L, enemylib); lua_setglobal(L, "enemy");
     lua_pushcfunction(L, l_call); lua_setglobal(L, "call");
     lua_pushcfunction(L, l_log);  lua_setglobal(L, "log");
-    if (luaL_dostring(L, PRELUDE)) {
+    if (luaL_dostring(L, PRELUDE) || luaL_dostring(L, PRELUDE2)) {
         const char *m = lua_tostring(L, -1);
         snprintf(status, sizeof status, "lua:prelude %.70s", m ? m : "?");
         lua_pop(L, 1);
