@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 #include "cpu.h"
 extern void update_enemies_and_loops(void);
 extern void init_enemy(void);
@@ -11,7 +12,7 @@ extern void update_powerup(void);
 #define SCR 0xe8
 static const uint16_t FA[NF] = {0x0f,0x16,0x1e,0x46,0x58,0x6e,0x87,0xa0,0xb6,0xcf,
   0x3c5,0x401,0x417,0x434,0x491,0x49a,0x78a,0x796,0x6e5,0x3c};
-typedef struct { uint8_t used, item, ptype, v[NF], box[4], spr[24]; } Ex;
+typedef struct { uint8_t used, item, ptype, v[NF], box[4], spr[24]; char name[24]; } Ex;
 static Ex ex[MAXE];
 
 static void put(const Ex *e, int sl) { for (int i = 0; i < NF; i++) ram[FA[i] + sl] = e->v[i]; memcpy(&ram[0x4b0 + 4 * sl], e->box, 4); }
@@ -78,7 +79,8 @@ int extra_spawn(uint8_t kind, uint8_t page, uint8_t px, uint8_t py) {
 int extra_count(void) { int n = 0; for (int i = 0; i < MAXE; i++) n += (ex[i].used && !ex[i].item); return n; }
 int extra_item_count(void) { int n = 0; for (int i = 0; i < MAXE; i++) n += (ex[i].used && ex[i].item); return n; }
 void extra_test(void) {}
-void extra_reset(void) { memset(ex, 0, sizeof ex); }
+static char tg_orig[5][24];
+void extra_reset(void) { memset(ex, 0, sizeof ex); memset(tg_orig, 0, sizeof tg_orig); }
 void extra_run(void) {
     static unsigned tick; tick++;
     for (int i = 0; i < MAXE; i++) if (ex[i].used) {
@@ -103,3 +105,24 @@ void extra_overlay(uint8_t *oam) {
         }
 }
 void extra_restore(uint8_t *oam) { memcpy(oam, oam_bak, 256); }
+void extra_name(int i, const char *t) {
+    if (i < 0 || i >= MAXE || !ex[i].used) return;
+    strncpy(ex[i].name, t, 23); ex[i].name[23] = 0;
+}
+void extra_name_orig(int i, const char *t) {
+    if (i < 0 || i >= 5) return;
+    strncpy(tg_orig[i], t, 23); tg_orig[i][23] = 0;
+}
+static int tag_line(char *o, int cap, int sx, int y, const char *t) {
+    if (sx < -8 || sx > 264 || cap < 48) return 0;
+    return snprintf(o, cap, "%d,%d,%s\n", sx + 8, y - 3, t);
+}
+int extra_tags(char *out, int cap) {
+    int n = 0; out[0] = 0;
+    int sl = ram[0x71a] * 256 + ram[0x71c];
+    for (int i = 0; i < MAXE; i++) if (ex[i].used && !ex[i].item && ex[i].name[0] && ex[i].v[0])
+        n += tag_line(out + n, cap - n, ex[i].v[5] * 256 + ex[i].v[6] - sl, ex[i].v[9], ex[i].name);
+    for (int i = 0; i < 5; i++) if (tg_orig[i][0] && ram[0x0f + i])
+        n += tag_line(out + n, cap - n, ram[0x6e + i] * 256 + ram[0x87 + i] - sl, ram[0xcf + i], tg_orig[i]);
+    return n;
+}

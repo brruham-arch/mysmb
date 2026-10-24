@@ -65,4 +65,9 @@ function item.spawn(kind, wx, y, force)
   return enemy.item_at(t, wx, y or 0xb0)
 end
 function item.count() return enemy.item_count() end
+function enemy.spawn_named(name, kind, wx, y)
+  local id = enemy.spawn_at(kind, wx or (player.x() + 100), y or 0xb0)
+  if id >= 0 then enemy.name(id, name) end
+  return id
+end
 );

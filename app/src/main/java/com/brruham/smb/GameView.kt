@@ -94,9 +94,24 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
         c.drawText(label, cx, cy + txt.textSize / 3f, txt)
     }
 
+    private fun drawTags(c: Canvas) {
+        val tg = Core.tags()
+        if (tg.isEmpty()) return
+        val sc = gameRect.width() / sw
+        tagP.textSize = 5.5f * sc; tagS.textSize = tagP.textSize; tagS.strokeWidth = sc * 0.9f
+        for (ln in tg.split("\n")) {
+            val p = ln.split(",", limit = 3)
+            if (p.size < 3) continue
+            val px = (p[0].toIntOrNull() ?: continue) * sc
+            val py = (p[1].toIntOrNull() ?: continue) * sc
+            c.drawText(p[2], px, py, tagS); c.drawText(p[2], px, py, tagP)
+        }
+    }
+
     private fun drawUi(c: Canvas) {
         c.drawColor(Color.BLACK)
         c.drawBitmap(bmp, null, gameRect, null); if (showDbg) c.drawText(dbg, c.width / 2f, gameRect.bottom + txt.textSize * 1.5f, txt)
+        drawTags(c)
         val m = mask
         btn(c, dpx, dpy - dr * 0.65f, dr * 0.32f, "^", m and UP != 0)
         btn(c, dpx, dpy + dr * 0.65f, dr * 0.32f, "v", m and DOWN != 0)
@@ -121,6 +136,8 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
     private var lastT = 0L
     private var acc = 0L
     @Volatile private var dbg = ""
+    private val tagP = android.graphics.Paint().apply { color = Color.WHITE; textAlign = android.graphics.Paint.Align.CENTER; isAntiAlias = true; isFakeBoldText = true }
+    private val tagS = android.graphics.Paint().apply { color = Color.BLACK; textAlign = android.graphics.Paint.Align.CENTER; isAntiAlias = true; isFakeBoldText = true; style = android.graphics.Paint.Style.STROKE }
     @Volatile private var showDbg = true
     private var fMax = 0L; private var fSum = 0L; private var fN = 0
     private var aFull = 0; private var tDbg = 0L
