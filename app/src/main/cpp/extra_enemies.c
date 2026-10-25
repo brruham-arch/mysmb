@@ -81,7 +81,7 @@ int extra_item_count(void) { int n = 0; for (int i = 0; i < MAXE; i++) n += (ex[
 void extra_test(void) {}
 static char tg_orig[5][24];
 void extra_reset(void) { memset(ex, 0, sizeof ex); memset(tg_orig, 0, sizeof tg_orig); }
-void extra_run(void) {
+static void run_enemies(void) {
     static unsigned tick; tick++;
     for (int i = 0; i < MAXE; i++) if (ex[i].used) {
         Ex *e = &ex[i];
@@ -126,3 +126,35 @@ int extra_tags(char *out, int cap) {
         n += tag_line(out + n, cap - n, ram[0x6e + i] * 256 + ram[0x87 + i] - sl, ram[0xcf + i], tg_orig[i]);
     return n;
 }
+extern void enemy_enemy_collisions(void);
+static uint8_t was[MAXE][MAXE];
+static void pair(Ex *a, Ex *b) {
+    Ex k4, k3; get(&k4, 4); get(&k3, 3);
+    uint8_t m4 = ram[0x3d8 + 4], m3 = ram[0x3d8 + 3], c3 = ram[0x125 + 3], c4 = ram[0x125 + 4];
+    uint8_t s8 = ram[8], xr = x;
+    a->v[14] = 0; b->v[14] = 0;
+    put(a, 4); put(b, 3);
+    ram[0x3d8 + 4] = 0; ram[0x3d8 + 3] = 0;
+    ram[8] = 4; x = 4;
+    enemy_enemy_collisions();
+    get(a, 4); get(b, 3);
+    put(&k4, 4); put(&k3, 3);
+    ram[0x3d8 + 4] = m4; ram[0x3d8 + 3] = m3; ram[0x125 + 3] = c3; ram[0x125 + 4] = c4;
+    ram[8] = s8; x = xr;
+}
+static int ov(const Ex *a, const Ex *b) {
+    return a->box[0] <= b->box[2] && b->box[0] <= a->box[2] && a->box[1] <= b->box[3] && b->box[1] <= a->box[3];
+}
+static void pairs(void) {
+    for (int i = 0; i < MAXE; i++) {
+        if (!ex[i].used || ex[i].item || !ex[i].v[0]) { memset(was[i], 0, MAXE); continue; }
+        for (int j = i + 1; j < MAXE; j++) {
+            if (!ex[j].used || ex[j].item || !ex[j].v[0]) { was[i][j] = 0; continue; }
+            if (ov(&ex[i], &ex[j])) {
+                if (!was[i][j] || ((ex[i].v[2] | ex[j].v[2]) & 0x80)) pair(&ex[i], &ex[j]);
+                was[i][j] = 1;
+            } else was[i][j] = 0;
+        }
+    }
+}
+void extra_run(void) { run_enemies(); pairs(); }
