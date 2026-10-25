@@ -38,7 +38,10 @@ static void p2_paste(uint8_t *oam, int *cur) {
 // dipanggil sebelum run_player_task P1
 int p2_pre(void) {
     if (!p2.en || !p2.ok) return 0;
-    if (!p2.dead && ram[0x0e] == 8 && p2.s[pai(0x3ad)] <= P2_LEFT) {
+    int lag = 0, sl = ram[0x71a] * 256 + ram[0x71c];
+    if (!p2.dead && (int)(p2.s[pai(0x6d)] * 256 + p2.s[pai(0x86)]) - sl <= P2_LEFT) lag = 1;
+    if ((int)(ram[0x6d] * 256 + ram[0x86]) - sl <= P2_LEFT) lag = 1;
+    if (lag && ram[0x0e] == 8) {
         p2.sv = ram[0x723]; ram[0x723] = 1; p2.slk = 1;      // kamera dikunci
     } else p2.lk = 0;
     if (p2.dead || ram[0x0e] != 6) return 0;
@@ -93,7 +96,6 @@ static void p2_run(void) {
             wx = sl + 0xd0; ram[0x86] = (uint8_t)wx; ram[0x6d] = (uint8_t)(wx >> 8);
             if (!(ram[0x57] & 0x80)) ram[0x57] = 0;
         }
-        if (++p2.lk >= P2_STUCK) { p2.lk = 0; p2.rs = 3; }
     }
     p2.ring[p2.rp & 31] = ram[0x6fc]; p2.rp++;
     uint8_t inp = p2.ring[(uint8_t)(p2.rp - 1 - P2_DELAY) & 31];
