@@ -49,6 +49,8 @@ static void p2_run(void) {
         ram[0x86] = (uint8_t)px; ram[0x6d] = (uint8_t)(px >> 8);
         ram[0x57] = 0; ram[0x9f] = 0; ram[0x1d] = 2; ram[0x0e] = 8;
     }
+    { static const uint16_t TF[6] = {0x781,0x782,0x783,0x785,0x786,0x789};
+      for (int i = 0; i < 6; i++) if (ram[TF[i]]) ram[TF[i]]--; }
     ram[0x6fc] = inp; ram[0x6e4] = P2S; ram[0x723] = 1;
     control_player();
     int dead = (ram[0x0e] == 6 || ram[0x0e] == 0xb || (ram[0xb5] >= 2 && ram[0xb5] < 0x80));
