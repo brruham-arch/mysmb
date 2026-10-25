@@ -53,6 +53,7 @@ static void p2_run(void) {
       for (int i = 0; i < 6; i++) if (ram[TF[i]]) ram[TF[i]]--; }
     ram[0x6fc] = inp; ram[0x6e4] = P2S; ram[0x723] = 1;
     control_player();
+    ram[0x0d] = ram[0x0a];
     int dead = (ram[0x0e] == 6 || ram[0x0e] == 0xb || (ram[0xb5] >= 2 && ram[0xb5] < 0x80));
     memset(p2.spr, 0xf8, 32);
     if (!dead) {
