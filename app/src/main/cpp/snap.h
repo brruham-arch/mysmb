@@ -50,15 +50,18 @@ static void snap_load(const uint8_t *buf){
   extra_snap_load(p);
 }
 
+#include <errno.h>
+static int serr;
 static uint8_t sbuf[16384];
 static uint32_t hp[600], sdh, sH1;
 static int stest = -1, sphase, sdiv, ssz;
 static void snap_test(void) {
     if (stest < 0) {
         FILE *f = fopen("/sdcard/SMB/snaptest", "r");
+        if (!f) { serr = errno; f = fopen("/storage/emulated/0/SMB/snaptest", "r"); }
         stest = f ? 1 : 0; if (f) fclose(f);
     }
-    if (dcount == 100) { FILE *g=fopen("/sdcard/SMB/snapdbg.txt","w"); if(g){fprintf(g,"stest=%d dmode=%d dcount=%d size=%d\n",stest,dmode,dcount,snap_size()); fclose(g);} }
+    if (dcount == 100) { FILE *g=fopen("/sdcard/SMB/snapdbg.txt","w"); if(g){fprintf(g,"stest=%d dmode=%d dcount=%d size=%d err=%d\n",stest,dmode,dcount,snap_size(),serr); fclose(g);} }
     if (!stest) return;
     if (sphase == 0 && dmode == 0 && dcount == 600) {
         ssz = snap_size();
