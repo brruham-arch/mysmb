@@ -158,3 +158,16 @@ static void pairs(void) {
     }
 }
 void extra_run(void) { run_enemies(); pairs(); }
+
+int extra_snap_size(void) { return (int)(sizeof(ex) + sizeof(tg_orig) + sizeof(was)); }
+int extra_snap_save(uint8_t *p) {
+    memcpy(p, ex, sizeof(ex)); p += sizeof(ex);
+    memcpy(p, tg_orig, sizeof(tg_orig)); p += sizeof(tg_orig);
+    memcpy(p, was, sizeof(was));
+    return extra_snap_size();
+}
+void extra_snap_load(const uint8_t *p) {
+    memcpy(ex, p, sizeof(ex)); p += sizeof(ex);
+    memcpy(tg_orig, p, sizeof(tg_orig)); p += sizeof(tg_orig);
+    memcpy(was, p, sizeof(was));
+}

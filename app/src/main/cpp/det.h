@@ -1,3 +1,4 @@
+static void snap_test(void);
 #define DETMAX 36000
 #define DETN 3600
 static uint8_t drec[DETMAX];
@@ -13,6 +14,7 @@ void det_after(const uint8_t *oam) {
     for (int i = 0; i < 2048; i++) dh = (dh ^ ram[i]) * 16777619u;
     for (int i = 0; i < 256; i++) dh = (dh ^ oam[i]) * 16777619u;
     dcount++;
+    snap_test();
     if (dcount % 300 == 0 && dcount / 300 <= 12) hk[dcount / 300 - 1] = dh;
 }
 JNIEXPORT void JNICALL Java_com_brruham_smb_Core_detSet(JNIEnv *env, jobject c, jbyteArray a) {
