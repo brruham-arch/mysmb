@@ -1,5 +1,9 @@
 // net.h - lockstep TCP: host = P1 (Mario), client = P2 (Luigi). Di-include dari extra_enemies.c
 #include <jni.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdint.h>
 #include <pthread.h>
 #include <unistd.h>
 #include <errno.h>
