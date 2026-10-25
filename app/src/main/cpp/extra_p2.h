@@ -5,6 +5,7 @@
 static uint8_t p2_netin;
 static int p2_netmode;
 extern void control_player(void);
+extern void queue_player_colors(void);
 extern void draw_player(void);
 extern void player_enemy_collision(void);
 extern void scroll_screen(void);
@@ -28,7 +29,8 @@ static const uint16_t PA[] = {
 typedef char p2_chk[(sizeof(PA) / sizeof(PA[0])) <= 64 ? 1 : -1];
 typedef struct { uint8_t s[64], ring[32], spr[32], rp, tk, en, ok, rs, vis, dead, dy, rt, go, slk, sv, lk, sa, pend; uint16_t sg; } P2;
 static P2 p2;
-static uint8_t p2_ksz = 1, p2_kpw;   // ukuran/power Luigi, bertahan melewati p2_reset
+static uint8_t p2_ksz = 1, p2_kpw;
+static int p2_pal;   // ukuran/power Luigi, bertahan melewati p2_reset
 static uint16_t p2_sig(void) {
     return (uint16_t)(ram[0x750]*31u + ram[0x74f]*17u + ram[0x74e]*7u + ram[0x75c]*131u + ram[0x75f]*257u + ram[0x760]*13u);
 }
@@ -174,6 +176,7 @@ static void p2_run(void) {
         P2LOG("SPAWN rs=%d lx=%d ly=%d size=%d task=%d\n", p2.rs, ram[0x6d]*256+ram[0x86], ram[0xce], ram[0x754], ram[0x772]);
         p2.rs = 0;
     }
+    uint8_t st0 = ram[0x756];
     ram[0x6fc] = inp; ram[0x6e4] = P2S; ram[0x723] = 1;
     { static const uint16_t TF[6] = {0x781,0x782,0x783,0x785,0x786,0x789};
       for (int i = 0; i < 6; i++) if (ram[TF[i]]) ram[TF[i]]--; }
@@ -203,6 +206,7 @@ static void p2_run(void) {
     }
     if (++p2.tk >= 21) { p2.tk = 0; if (ram[0x79e]) ram[0x79e]--; if (ram[0x79f]) ram[0x79f]--; }
     if (!p2.dead) { p2_ksz = ram[0x754]; p2_kpw = ram[0x756]; }
+    if (ram[0x756] != st0) { P2LOG("PW %d->%d\n", st0, ram[0x756]); p2_pal = 1; }
     for (int i = 0; i < NPA; i++) p2.s[i] = ram[PA[i]];
     for (int i = 0; i < NPA; i++) ram[PA[i]] = p1s[i];
     memcpy(ram, tmp, 16);
@@ -210,6 +214,7 @@ static void p2_run(void) {
     ram[0x712] = g712; ram[0x758] = g758; ram[0x6fc] = g6fc; ram[0x6e4] = g6e4;
     ram[0x747] = g747; ram[0x6de] = g6de;
     memcpy(&ram[0x200 + P2S], bak, 32);
+    if (p2_pal) { p2_pal = 0; queue_player_colors(); }
     a = ra; x = rx; y = ry;
     if (p2.go) { p2.go = 0; ram[0x0e] = 6; }
 }
