@@ -127,7 +127,7 @@ static void p2_run(void) {
             if (!(ram[0x57] & 0x80)) ram[0x57] = 0;
         }
     }
-    if (p2.pend) { memset(p2.spr, 0xf8, 32); p2.vis = 0; return; }
+    if (p2.pend || ram[0x0e] == 2 || ram[0x0e] == 3) { memset(p2.spr, 0xf8, 32); p2.vis = 0; return; }
     p2.ring[p2.rp & 31] = ram[0x6fc]; p2.rp++;
     uint8_t inp = p2_netmode ? p2_netin : p2.ring[(uint8_t)(p2.rp - 1 - P2_DELAY) & 31];
     memset(p2.spr, 0xf8, 32); p2.vis = 0;
@@ -137,7 +137,10 @@ static void p2_run(void) {
         else if (ram[0x0e] == 8) { p2.dead = 0; p2.dy = 0; p2.rs = 2; }
         if (p2.dead) { if (!p2.dy) return; anim = 1; }
     }
-    if (!p2.ok) { p2.ok = 1; p2.rs = 1; p2.sg = p2_sig(); }
+    if (!p2.ok) {
+        if (!(ram[0x0e] == 8 && ram[0x770] == 1 && ram[0x772] == 3)) return;
+        p2.ok = 1; p2.rs = 1; p2.sg = p2_sig();
+    }
     uint8_t p1s[64], tmp[16], bak[32];
     for (int i = 0; i < NPA; i++) p1s[i] = ram[PA[i]];
     memcpy(tmp, ram, 16);
