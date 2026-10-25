@@ -1,5 +1,7 @@
 // extra_p2.h - Pemain 2 lokal (3a tampil, 3b tabrakan+power-up, 3c mati/respawn, 3d kamera)
 #include <sys/stat.h>
+#include <stdio.h>
+#define P2LOG(...) do { FILE *lg = fopen("/sdcard/SMB/p2log.txt", "a"); if (lg) { fprintf(lg, __VA_ARGS__); fclose(lg); } } while (0)
 static uint8_t p2_netin;
 static int p2_netmode;
 extern void control_player(void);
@@ -46,7 +48,7 @@ int p2_pre(void) {
     if (!p2.en || !p2.ok) return 0;
     { uint16_t sg = p2_sig(); if (sg != p2.sg) { p2.sg = sg; p2.pend = 1; } }
     if (p2.pend) {
-        if (ram[0x0e] == 8 && ram[0x770] == 1 && ram[0x772] == 3) { p2.pend = 0; if (!p2.dead) p2.rs = 1; }
+        if (ram[0x0e] == 8 && ram[0x770] == 1 && ram[0x772] == 3) { p2.pend = 0; if (!p2.dead) p2.rs = 4; }
         else return 0;
     }
     int lockp1 = 0, p2sc = 0;
@@ -146,6 +148,7 @@ static void p2_run(void) {
     uint8_t ra = a, rx = x, ry = y;
     for (int i = 0; i < NPA; i++) ram[PA[i]] = p2.s[i];
     if (p2.rs) {
+        uint8_t k754 = ram[0x754], k756 = ram[0x756];
         if (p2.rs == 3) {   // macet: pindah saja ke dekat P1
             unsigned px = p1s[pai(0x6d)] * 256u + p1s[pai(0x86)] + 24u;
             ram[0x86] = (uint8_t)px; ram[0x6d] = (uint8_t)(px >> 8);
@@ -157,7 +160,9 @@ static void p2_run(void) {
             ram[0x86] = (uint8_t)px; ram[0x6d] = (uint8_t)(px >> 8);
             ram[0x57] = 0; ram[0x9f] = 0; ram[0x1d] = 2; ram[0x0e] = 8;
             if (p2.rs == 2) { ram[0x754] = 1; ram[0x756] = 0; ram[0x79e] = P2_INV; }
+            if (p2.rs == 4) { ram[0x754] = k754; ram[0x756] = k756; }
         }
+        P2LOG("SPAWN rs=%d lx=%d ly=%d size=%d task=%d\n", p2.rs, ram[0x6d]*256+ram[0x86], ram[0xce], ram[0x754], ram[0x772]);
         p2.rs = 0;
     }
     ram[0x6fc] = inp; ram[0x6e4] = P2S; ram[0x723] = 1;
@@ -173,6 +178,7 @@ static void p2_run(void) {
     if (tk == 3 || tk == 2) { ram[0x0e] = 8; tk = 8; }   // P2 tidak boleh masuk pipa sendiri
     int fell = (ram[0xb5] >= 2 && ram[0xb5] < 0x80);
     if (!anim && (tk == 6 || tk == 0x0b || fell)) {
+        P2LOG("DIE tk=%d fell=%d ly=%d:%d lx=%d p1x=%d p1y=%d inj=%d small=%d w=%d a=%d k=%d t=%d\n", tk, fell, ram[0xb5], ram[0xce], ram[0x6d]*256+ram[0x86], p1s[pai(0x6d)]*256+p1s[pai(0x86)], p1s[pai(0xce)], ram[0x79e], ram[0x754], ram[0x75f], ram[0x760], ram[0x74e], ram[0x772]);
         p2.dead = 1; p2.rt = P2_RTIME; p2.dy = (tk == 0x0b && !fell);
         uint8_t lv = ram[0x75a];
         if (lv == 0 || (lv & 0x80)) p2.go = 1; else ram[0x75a] = (uint8_t)(lv - 1);
