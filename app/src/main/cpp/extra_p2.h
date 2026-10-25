@@ -90,6 +90,7 @@ static void p2_collide(void) {
     uint8_t s8 = ram[8], xr = x;
     for (int i = 0; i < 5 && ram[0x0e] == 8; i++) if (ram[0x0f + i]) {
         ram[8] = (uint8_t)i; x = (uint8_t)i; player_enemy_collision();
+        if (ram[0x0e] != 8) P2LOG("COLL slot=%d kind=%d tk=%d\n", i, ram[0x16 + i], ram[0x0e]);
     }
     if (ram[0x0e] == 8 && ram[0x0f + 5] && ram[0x1e + 5] >= 6) {   // power-up bawaan (slot 5)
         ram[8] = 5; x = 5; player_enemy_collision();
@@ -175,6 +176,7 @@ static void p2_run(void) {
     ram[0x0d] = ram[0x0a];
     uint8_t tk = ram[0x0e];
     if (!anim && tk == 8) { p2_collide(); tk = ram[0x0e]; }
+    { static uint8_t ltk = 255; if (tk != ltk) { P2LOG("TK %d->%d lx=%d ly=%d p1tk=%d p1x=%d\n", ltk, tk, ram[0x6d] * 256 + ram[0x86], ram[0xce], tmp[0x0e], p1s[pai(0x6d)] * 256 + p1s[pai(0x86)]); ltk = tk; } }
     if (tk == 0x0a) { ram[0x0e] = 8; ram[0x754] = 1; ram[0x756] = 0; ram[0x70b] = 0; tk = 8; }
     if (tk == 0x09) { ram[0x0e] = 8; ram[0x754] = 0; ram[0x70b] = 0; tk = 8; }
     if (tk == 0x0c) { ram[0x0e] = 8; ram[0x3c4] &= 0xfc; tk = 8; }
