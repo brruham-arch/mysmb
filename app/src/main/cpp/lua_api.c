@@ -146,6 +146,7 @@ static char *pending;
 static pthread_mutex_t pm = PTHREAD_MUTEX_INITIALIZER;
 static int hticks;
 #include "inputapi.h"
+#include "det.h"
 static void hookfn(lua_State *s, lua_Debug *d) {
     if (++hticks >= 2) luaL_error(s, "script terlalu lama");
 }
