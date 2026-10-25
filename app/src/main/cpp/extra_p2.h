@@ -28,6 +28,7 @@ static const uint16_t PA[] = {
 typedef char p2_chk[(sizeof(PA) / sizeof(PA[0])) <= 64 ? 1 : -1];
 typedef struct { uint8_t s[64], ring[32], spr[32], rp, tk, en, ok, rs, vis, dead, dy, rt, go, slk, sv, lk, sa, pend; uint16_t sg; } P2;
 static P2 p2;
+static uint8_t p2_ksz = 1, p2_kpw;   // ukuran/power Luigi, bertahan melewati p2_reset
 static uint16_t p2_sig(void) {
     return (uint16_t)(ram[0x750]*31u + ram[0x74f]*17u + ram[0x74e]*7u + ram[0x75c]*131u + ram[0x75f]*257u + ram[0x760]*13u);
 }
@@ -75,7 +76,7 @@ int p2_pre(void) {
     if (lockp1) { p2.sv = ram[0x723]; ram[0x723] = 1; p2.slk = 1; }
     if (p2.dead || ram[0x0e] != 6) return 0;
     uint8_t lv = ram[0x75a];
-    if (lv == 0 || (lv & 0x80)) return 0;
+    if (lv == 0 || (lv & 0x80)) { p2_ksz = 1; p2_kpw = 0; return 0; }
     ram[0x75a] = (uint8_t)(lv - 1);
     ram[0x86] = p2.s[pai(0x86)]; ram[0x6d] = p2.s[pai(0x6d)];
     ram[0xce] = p2.s[pai(0xce)]; ram[0xb5] = p2.s[pai(0xb5)];
@@ -165,6 +166,10 @@ static void p2_run(void) {
             ram[0x57] = 0; ram[0x9f] = 0; ram[0x1d] = 2; ram[0x0e] = 8;
             if (p2.rs == 2) { ram[0x754] = 1; ram[0x756] = 0; ram[0x79e] = P2_INV; }
             if (p2.rs == 4) { ram[0x754] = k754; ram[0x756] = k756; }
+            if (p2.rs == 1) {
+                ram[0x754] = p2_ksz; ram[0x756] = p2_kpw;
+                if (p2_ksz == 0 && p1s[pai(0x754)] != 0 && ram[0xce] >= 16) ram[0xce] = (uint8_t)(ram[0xce] - 16);
+            }
         }
         P2LOG("SPAWN rs=%d lx=%d ly=%d size=%d task=%d\n", p2.rs, ram[0x6d]*256+ram[0x86], ram[0xce], ram[0x754], ram[0x772]);
         p2.rs = 0;
@@ -184,6 +189,7 @@ static void p2_run(void) {
     int fell = (ram[0xb5] >= 2 && ram[0xb5] < 0x80);
     if (!anim && (tk == 6 || tk == 0x0b || fell)) {
         P2LOG("DIE tk=%d fell=%d ly=%d:%d lx=%d p1x=%d p1y=%d inj=%d small=%d w=%d a=%d k=%d t=%d\n", tk, fell, ram[0xb5], ram[0xce], ram[0x6d]*256+ram[0x86], p1s[pai(0x6d)]*256+p1s[pai(0x86)], p1s[pai(0xce)], ram[0x79e], ram[0x754], ram[0x75f], ram[0x760], ram[0x74e], ram[0x772]);
+        p2_ksz = 1; p2_kpw = 0;
         p2.dead = 1; p2.rt = P2_RTIME; p2.dy = (tk == 0x0b && !fell);
         uint8_t lv = ram[0x75a];
         if (lv == 0 || (lv & 0x80)) p2.go = 1; else ram[0x75a] = (uint8_t)(lv - 1);
@@ -196,6 +202,7 @@ static void p2_run(void) {
         p2.vis = 1;
     }
     if (++p2.tk >= 21) { p2.tk = 0; if (ram[0x79e]) ram[0x79e]--; if (ram[0x79f]) ram[0x79f]--; }
+    if (!p2.dead) { p2_ksz = ram[0x754]; p2_kpw = ram[0x756]; }
     for (int i = 0; i < NPA; i++) p2.s[i] = ram[PA[i]];
     for (int i = 0; i < NPA; i++) ram[PA[i]] = p1s[i];
     memcpy(ram, tmp, 16);
