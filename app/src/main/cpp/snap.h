@@ -58,6 +58,7 @@ static void snap_test(void) {
         FILE *f = fopen("/sdcard/SMB/snaptest", "r");
         stest = f ? 1 : 0; if (f) fclose(f);
     }
+    if (dcount == 100) { FILE *g=fopen("/sdcard/SMB/snapdbg.txt","w"); if(g){fprintf(g,"stest=%d dmode=%d dcount=%d size=%d\n",stest,dmode,dcount,snap_size()); fclose(g);} }
     if (!stest) return;
     if (sphase == 0 && dmode == 0 && dcount == 600) {
         ssz = snap_size();
