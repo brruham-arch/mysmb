@@ -183,30 +183,10 @@ class GameView(ctx: Context) : SurfaceView(ctx), SurfaceHolder.Callback {
         return t
     }
 
-    private var detInit = false
-    private var detSaved = false
-    private fun detPre() {
-        if (detInit) return
-        detInit = true
-        try { val f = java.io.File("/sdcard/SMB/rec.bin"); if (f.canRead()) Core.detSet(f.readBytes()) } catch (e: Exception) {}
-    }
-    private fun detPost() {
-        if (detSaved) return
-        val v = Core.detInfo()
-        if (v[1] < 3600) return
-        try {
-            if (v[0] == 0) java.io.File("/sdcard/SMB/rec.bin").writeBytes(Core.detGet())
-            java.io.File("/sdcard/SMB/det.txt").appendText((if (v[0] == 0) "REC " else "PLAY ") + v.drop(2).joinToString(" ") { Integer.toHexString(it) } + "\n")
-            detSaved = true
-        } catch (e: Exception) {}
-    }
-
     private fun step() {
-        detPre()
         if (++pollN % 60 == 1) pollScript()
         val t0 = System.nanoTime()
         Core.frame(pixels)
-        detPost()
         val dt = System.nanoTime() - t0
         if (dt > fMax) fMax = dt
         fSum += dt; fN++

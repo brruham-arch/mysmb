@@ -40,8 +40,6 @@ JNIEXPORT jint JNICALL Java_com_brruham_smb_Core_size(JNIEnv *env, jclass c) {
 }
 
 extern uint8_t lua_input(uint32_t);
-extern uint8_t det_in(uint8_t);
-extern void det_after(const uint8_t *);
 static volatile uint32_t raw_in;
 JNIEXPORT void JNICALL Java_com_brruham_smb_Core_input(JNIEnv *env, jclass c, jint m) {
     raw_in = (uint32_t)m;
@@ -53,9 +51,8 @@ JNIEXPORT void JNICALL Java_com_brruham_smb_Core_frame(JNIEnv *env, jclass c, ji
         uint8_t m1;
         if (!net_begin((uint32_t)raw_in, &m1)) goto present;
         update_controller1(m1);
-    } else update_controller1(det_in(lua_input(raw_in)));
+    } else update_controller1(lua_input(raw_in));
     next_frame();
-    det_after(video.oam);
     if (net_on()) net_end();
     //extra_test();
     //extra_run();

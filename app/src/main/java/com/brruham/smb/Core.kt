@@ -12,9 +12,6 @@ object Core {
     external fun pushEvent(s: String)
     external fun luaStatus(): String
     external fun tags(): String
-    external fun detSet(b: ByteArray)
-    external fun detGet(): ByteArray
-    external fun detInfo(): IntArray
     external fun luaLoad(s: String)
     external fun netHost()
     external fun netJoin(ip: String)
