@@ -3,6 +3,7 @@
 extern void control_player(void);
 extern void draw_player(void);
 extern void player_enemy_collision(void);
+extern void scroll_screen(void);
 static void put(const Ex *e, int sl);
 static void get(Ex *e, int sl);
 #define P2S 0xe0
@@ -21,7 +22,7 @@ static const uint16_t PA[] = {
   0x781,0x782,0x783,0x785,0x786,0x789,0x79e,0x79f };
 #define NPA ((int)(sizeof(PA) / sizeof(PA[0])))
 typedef char p2_chk[(sizeof(PA) / sizeof(PA[0])) <= 64 ? 1 : -1];
-typedef struct { uint8_t s[64], ring[32], spr[32], rp, tk, en, ok, rs, vis, dead, dy, rt, go, slk, sv, lk; } P2;
+typedef struct { uint8_t s[64], ring[32], spr[32], rp, tk, en, ok, rs, vis, dead, dy, rt, go, slk, sv, lk, sa; } P2;
 static P2 p2;
 static int pai(uint16_t a) { for (int i = 0; i < NPA; i++) if (PA[i] == a) return i; return 0; }
 static void p2_reset(void) { uint8_t en = p2.en; memset(&p2, 0, sizeof p2); p2.en = en; }
@@ -38,12 +39,28 @@ static void p2_paste(uint8_t *oam, int *cur) {
 // dipanggil sebelum run_player_task P1
 int p2_pre(void) {
     if (!p2.en || !p2.ok) return 0;
-    int lag = 0, sl = ram[0x71a] * 256 + ram[0x71c];
-    if (!p2.dead && (int)(p2.s[pai(0x6d)] * 256 + p2.s[pai(0x86)]) - sl <= P2_LEFT) lag = 1;
-    if ((int)(ram[0x6d] * 256 + ram[0x86]) - sl <= P2_LEFT) lag = 1;
-    if (lag && ram[0x0e] == 8) {
-        p2.sv = ram[0x723]; ram[0x723] = 1; p2.slk = 1;      // kamera dikunci
-    } else p2.lk = 0;
+    int lockp1 = 0, p2sc = 0;
+    int sl = ram[0x71a] * 256 + ram[0x71c];
+    int x1 = ram[0x6d] * 256 + ram[0x86];
+    if (!p2.dead && ram[0x0e] == 8 && ram[0x723] == 0) {
+        int x2 = p2.s[pai(0x6d)] * 256 + p2.s[pai(0x86)];
+        if (x1 - sl <= P2_LEFT || x2 - sl <= P2_LEFT) lockp1 = 1;
+        else if (x2 > x1) { lockp1 = 1; p2sc = 1; }
+    }
+    if (p2sc) {
+        uint8_t pos = p2.s[pai(0x755)], sct = p2.s[pai(0x785)], psx = p2.s[pai(0x6ff)];
+        if (pos >= 0x50 && sct == 0) {
+            uint8_t yy = (uint8_t)(psx - 1);
+            if (!(yy & 0x80)) {
+                yy++; if (yy >= 2) yy--;
+                if (pos >= 0x70) yy = psx;
+                uint8_t ra = a, rx = x, ry = y;
+                y = yy; scroll_screen(); p2.sa = ram[0x775];
+                a = ra; x = rx; y = ry;
+            }
+        }
+    }
+    if (lockp1) { p2.sv = ram[0x723]; ram[0x723] = 1; p2.slk = 1; }
     if (p2.dead || ram[0x0e] != 6) return 0;
     uint8_t lv = ram[0x75a];
     if (lv == 0 || (lv & 0x80)) return 0;
@@ -90,7 +107,7 @@ static void p2_run(void) {
     if (!chk) { chk = 1; struct stat st; p2.en = (stat("/sdcard/SMB/p2test", &st) == 0); }
     if (!p2.en) return;
     if (p2.slk) {   // pulihkan kunci kamera, batasi P1 di sisi kanan layar
-        ram[0x723] = p2.sv; p2.slk = 0;
+        ram[0x723] = p2.sv; p2.slk = 0; if (p2.sa) { ram[0x775] = p2.sa; p2.sa = 0; }
         unsigned wx = ram[0x6d] * 256u + ram[0x86], sl = ram[0x71a] * 256u + ram[0x71c];
         if (wx > sl + 0xd0) {
             wx = sl + 0xd0; ram[0x86] = (uint8_t)wx; ram[0x6d] = (uint8_t)(wx >> 8);
