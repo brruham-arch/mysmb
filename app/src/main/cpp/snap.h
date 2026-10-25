@@ -57,9 +57,9 @@ static uint32_t hp[600], sdh, sH1;
 static int stest = -1, sphase, sdiv, ssz;
 static void snap_test(void) {
     if (stest < 0) {
-        FILE *f = fopen("/sdcard/SMB/snaptest", "r");
-        if (!f) { serr = errno; f = fopen("/storage/emulated/0/SMB/snaptest", "r"); }
-        stest = f ? 1 : 0; if (f) fclose(f);
+        struct stat st;
+        stest = (stat("/sdcard/SMB/snaptest", &st) == 0) ? 1 : 0;
+        if (!stest) serr = errno;
     }
     if (dcount == 100) { FILE *g=fopen("/sdcard/SMB/snapdbg.txt","w"); if(g){fprintf(g,"stest=%d dmode=%d dcount=%d size=%d err=%d\n",stest,dmode,dcount,snap_size(),serr); fclose(g);} }
     if (!stest) return;
