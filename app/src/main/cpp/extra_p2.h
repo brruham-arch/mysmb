@@ -24,8 +24,11 @@ static const uint16_t PA[] = {
   0x781,0x782,0x783,0x785,0x786,0x789,0x79e,0x79f };
 #define NPA ((int)(sizeof(PA) / sizeof(PA[0])))
 typedef char p2_chk[(sizeof(PA) / sizeof(PA[0])) <= 64 ? 1 : -1];
-typedef struct { uint8_t s[64], ring[32], spr[32], rp, tk, en, ok, rs, vis, dead, dy, rt, go, slk, sv, lk, sa; } P2;
+typedef struct { uint8_t s[64], ring[32], spr[32], rp, tk, en, ok, rs, vis, dead, dy, rt, go, slk, sv, lk, sa, pend; uint16_t sg; } P2;
 static P2 p2;
+static uint16_t p2_sig(void) {
+    return (uint16_t)(ram[0x750]*31u + ram[0x74f]*17u + ram[0x74e]*7u + ram[0x75c]*131u + ram[0x75f]*257u + ram[0x760]*13u);
+}
 static int pai(uint16_t a) { for (int i = 0; i < NPA; i++) if (PA[i] == a) return i; return 0; }
 static void p2_reset(void) { uint8_t en = p2.en; memset(&p2, 0, sizeof p2); p2.en = en; }
 static void p2_paste(uint8_t *oam, int *cur) {
@@ -41,6 +44,11 @@ static void p2_paste(uint8_t *oam, int *cur) {
 // dipanggil sebelum run_player_task P1
 int p2_pre(void) {
     if (!p2.en || !p2.ok) return 0;
+    { uint16_t sg = p2_sig(); if (sg != p2.sg) { p2.sg = sg; p2.pend = 1; } }
+    if (p2.pend) {
+        if (ram[0x0e] == 8 && ram[0x770] == 1 && ram[0x772] == 3) { p2.pend = 0; if (!p2.dead) p2.rs = 1; }
+        else return 0;
+    }
     int lockp1 = 0, p2sc = 0;
     int sl = ram[0x71a] * 256 + ram[0x71c];
     int x1 = ram[0x6d] * 256 + ram[0x86];
@@ -117,6 +125,7 @@ static void p2_run(void) {
             if (!(ram[0x57] & 0x80)) ram[0x57] = 0;
         }
     }
+    if (p2.pend) { memset(p2.spr, 0xf8, 32); p2.vis = 0; return; }
     p2.ring[p2.rp & 31] = ram[0x6fc]; p2.rp++;
     uint8_t inp = p2_netmode ? p2_netin : p2.ring[(uint8_t)(p2.rp - 1 - P2_DELAY) & 31];
     memset(p2.spr, 0xf8, 32); p2.vis = 0;
@@ -126,14 +135,14 @@ static void p2_run(void) {
         else if (ram[0x0e] == 8) { p2.dead = 0; p2.dy = 0; p2.rs = 2; }
         if (p2.dead) { if (!p2.dy) return; anim = 1; }
     }
-    if (!p2.ok) { p2.ok = 1; p2.rs = 1; }
+    if (!p2.ok) { p2.ok = 1; p2.rs = 1; p2.sg = p2_sig(); }
     uint8_t p1s[64], tmp[16], bak[32];
     for (int i = 0; i < NPA; i++) p1s[i] = ram[PA[i]];
     memcpy(tmp, ram, 16);
     memcpy(bak, &ram[0x200 + P2S], 32);
     uint8_t g775 = ram[0x775], g723 = ram[0x723], gfc = ram[0xfc], gfb = ram[0xfb];
     uint8_t g712 = ram[0x712], g758 = ram[0x758], g6fc = ram[0x6fc], g6e4 = ram[0x6e4];
-    uint8_t g747 = ram[0x747];
+    uint8_t g747 = ram[0x747], g6de = ram[0x6de];
     uint8_t ra = a, rx = x, ry = y;
     for (int i = 0; i < NPA; i++) ram[PA[i]] = p2.s[i];
     if (p2.rs) {
@@ -161,6 +170,7 @@ static void p2_run(void) {
     if (tk == 0x0a) { ram[0x0e] = 8; ram[0x754] = 1; ram[0x756] = 0; ram[0x70b] = 0; tk = 8; }
     if (tk == 0x09) { ram[0x0e] = 8; ram[0x754] = 0; ram[0x70b] = 0; tk = 8; }
     if (tk == 0x0c) { ram[0x0e] = 8; ram[0x3c4] &= 0xfc; tk = 8; }
+    if (tk == 3 || tk == 2) { ram[0x0e] = 8; tk = 8; }   // P2 tidak boleh masuk pipa sendiri
     int fell = (ram[0xb5] >= 2 && ram[0xb5] < 0x80);
     if (!anim && (tk == 6 || tk == 0x0b || fell)) {
         p2.dead = 1; p2.rt = P2_RTIME; p2.dy = (tk == 0x0b && !fell);
@@ -180,7 +190,7 @@ static void p2_run(void) {
     memcpy(ram, tmp, 16);
     ram[0x775] = g775; ram[0x723] = g723; ram[0xfc] = gfc; ram[0xfb] = gfb;
     ram[0x712] = g712; ram[0x758] = g758; ram[0x6fc] = g6fc; ram[0x6e4] = g6e4;
-    ram[0x747] = g747;
+    ram[0x747] = g747; ram[0x6de] = g6de;
     memcpy(&ram[0x200 + P2S], bak, 32);
     a = ra; x = rx; y = ry;
     if (p2.go) { p2.go = 0; ram[0x0e] = 6; }
