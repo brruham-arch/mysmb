@@ -14,6 +14,7 @@ static const uint16_t FA[NF] = {0x0f,0x16,0x1e,0x46,0x58,0x6e,0x87,0xa0,0xb6,0xc
   0x3c5,0x401,0x417,0x434,0x491,0x49a,0x78a,0x796,0x6e5,0x3c};
 typedef struct { uint8_t used, item, ptype, v[NF], box[4], spr[24]; char name[24]; } Ex;
 static Ex ex[MAXE];
+#include "extra_p2.h"
 
 static void put(const Ex *e, int sl) { for (int i = 0; i < NF; i++) ram[FA[i] + sl] = e->v[i]; memcpy(&ram[0x4b0 + 4 * sl], e->box, 4); }
 static void get(Ex *e, int sl) { for (int i = 0; i < NF; i++) e->v[i] = ram[FA[i] + sl]; memcpy(e->box, &ram[0x4b0 + 4 * sl], 4); }
@@ -80,7 +81,7 @@ int extra_count(void) { int n = 0; for (int i = 0; i < MAXE; i++) n += (ex[i].us
 int extra_item_count(void) { int n = 0; for (int i = 0; i < MAXE; i++) n += (ex[i].used && ex[i].item); return n; }
 void extra_test(void) {}
 static char tg_orig[5][24];
-void extra_reset(void) { memset(ex, 0, sizeof ex); memset(tg_orig, 0, sizeof tg_orig); }
+void extra_reset(void) { memset(ex, 0, sizeof ex); memset(tg_orig, 0, sizeof tg_orig); p2_reset(); }
 static void run_enemies(void) {
     static unsigned tick; tick++;
     for (int i = 0; i < MAXE; i++) if (ex[i].used) {
@@ -95,6 +96,7 @@ static uint8_t oam_bak[256];
 void extra_overlay(uint8_t *oam) {
     memcpy(oam_bak, oam, 256);
     int cur = 0;
+    p2_paste(oam, &cur);
     for (int i = 0; i < MAXE; i++) if (ex[i].used)
         for (int s = 0; s < 6; s++) {
             if (ex[i].spr[s * 4] >= 0xef) continue;
@@ -157,17 +159,19 @@ static void pairs(void) {
         }
     }
 }
-void extra_run(void) { run_enemies(); pairs(); }
+void extra_run(void) { run_enemies(); pairs(); p2_run(); }
 
-int extra_snap_size(void) { return (int)(sizeof(ex) + sizeof(tg_orig) + sizeof(was)); }
+int extra_snap_size(void) { return (int)(sizeof(ex) + sizeof(tg_orig) + sizeof(was) + sizeof(p2)); }
 int extra_snap_save(uint8_t *p) {
     memcpy(p, ex, sizeof(ex)); p += sizeof(ex);
     memcpy(p, tg_orig, sizeof(tg_orig)); p += sizeof(tg_orig);
-    memcpy(p, was, sizeof(was));
+    memcpy(p, was, sizeof(was)); p += sizeof(was);
+    memcpy(p, &p2, sizeof(p2));
     return extra_snap_size();
 }
 void extra_snap_load(const uint8_t *p) {
     memcpy(ex, p, sizeof(ex)); p += sizeof(ex);
     memcpy(tg_orig, p, sizeof(tg_orig)); p += sizeof(tg_orig);
-    memcpy(was, p, sizeof(was));
+    memcpy(was, p, sizeof(was)); p += sizeof(was);
+    memcpy(&p2, p, sizeof(p2));
 }
