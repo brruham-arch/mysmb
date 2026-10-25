@@ -1,3 +1,7 @@
+#include <stdbool.h>
+#include "video.h"
+extern bool controller1_strobe, controller2_strobe;
+extern uint8_t controller1_btn_index, controller2_btn_index;
 // snap.h - savestate lengkap (dipakai tes round-trip & resync)
 #include <string.h>
 #include <stdint.h>
