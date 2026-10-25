@@ -159,7 +159,7 @@ static void pairs(void) {
         }
     }
 }
-void extra_run(void) { run_enemies(); pairs(); p2_run(); }
+void extra_run(void) { run_enemies(); pairs(); p2_run(); if (ram[0xfc] == 1) ram[0xfc] = 0; }
 
 int extra_snap_size(void) { return (int)(sizeof(ex) + sizeof(tg_orig) + sizeof(was) + sizeof(p2)); }
 int extra_snap_save(uint8_t *p) {
