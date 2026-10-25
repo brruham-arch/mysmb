@@ -17,6 +17,12 @@ class MainActivity : Activity() {
             Core.init(rom.absolutePath)
             Core.ready = true
         }
+        if (intent.getBooleanExtra("mp", false)) Core.netStart()
         setContentView(GameView(this))
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        android.os.Process.killProcess(android.os.Process.myPid())
     }
 }

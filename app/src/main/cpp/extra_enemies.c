@@ -175,3 +175,4 @@ void extra_snap_load(const uint8_t *p) {
     memcpy(was, p, sizeof(was)); p += sizeof(was);
     memcpy(&p2, p, sizeof(p2));
 }
+#include "net.h"

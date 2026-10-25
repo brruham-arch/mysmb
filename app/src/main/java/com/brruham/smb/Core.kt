@@ -16,4 +16,9 @@ object Core {
     external fun detGet(): ByteArray
     external fun detInfo(): IntArray
     external fun luaLoad(s: String)
+    external fun netHost()
+    external fun netJoin(ip: String)
+    external fun netState(): Int
+    external fun netStop()
+    external fun netStart()
 }

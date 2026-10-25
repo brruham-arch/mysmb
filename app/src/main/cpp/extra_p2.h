@@ -1,5 +1,7 @@
 // extra_p2.h - Pemain 2 lokal (3a tampil, 3b tabrakan+power-up, 3c mati/respawn, 3d kamera)
 #include <sys/stat.h>
+static uint8_t p2_netin;
+static int p2_netmode;
 extern void control_player(void);
 extern void draw_player(void);
 extern void player_enemy_collision(void);
@@ -104,6 +106,7 @@ static void p2_collide(void) {
 }
 static void p2_run(void) {
     static int chk;
+    if (p2_netmode) { chk = 1; p2.en = 1; }
     if (!chk) { chk = 1; struct stat st; p2.en = (stat("/sdcard/SMB/p2test", &st) == 0); }
     if (!p2.en) return;
     if (p2.slk) {   // pulihkan kunci kamera, batasi P1 di sisi kanan layar
@@ -115,7 +118,7 @@ static void p2_run(void) {
         }
     }
     p2.ring[p2.rp & 31] = ram[0x6fc]; p2.rp++;
-    uint8_t inp = p2.ring[(uint8_t)(p2.rp - 1 - P2_DELAY) & 31];
+    uint8_t inp = p2_netmode ? p2_netin : p2.ring[(uint8_t)(p2.rp - 1 - P2_DELAY) & 31];
     memset(p2.spr, 0xf8, 32); p2.vis = 0;
     int anim = 0;
     if (p2.dead) {

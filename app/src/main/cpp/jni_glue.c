@@ -12,6 +12,9 @@ void extra_run(void);
 void extra_test(void);
 void extra_overlay(uint8_t *o);
 void extra_restore(uint8_t *o);
+int net_on(void);
+int net_begin(uint32_t, uint8_t *);
+void net_end(void);
 
 JNIEXPORT jint JNICALL Java_com_brruham_smb_Core_init(JNIEnv *env, jclass c, jstring path) {
     char buf[512];
@@ -46,15 +49,21 @@ JNIEXPORT void JNICALL Java_com_brruham_smb_Core_input(JNIEnv *env, jclass c, ji
 
 JNIEXPORT void JNICALL Java_com_brruham_smb_Core_frame(JNIEnv *env, jclass c, jintArray out) {
     static jint buf[256 * 240];
-    update_controller1(det_in(lua_input(raw_in)));
+    if (net_on()) {
+        uint8_t m1;
+        if (!net_begin((uint32_t)raw_in, &m1)) goto present;
+        update_controller1(m1);
+    } else update_controller1(det_in(lua_input(raw_in)));
     next_frame();
     det_after(video.oam);
+    if (net_on()) net_end();
     //extra_test();
     //extra_run();
     extra_overlay(video.oam);
     render_frame();
     extra_restore(video.oam);
     sound_end_frame();
+present: ;
     const uint8_t *f = (const uint8_t *)frame;
     int n = SCREEN_WIDTH * SCREEN_HEIGHT;
     if (n > 256 * 240) n = 256 * 240;
