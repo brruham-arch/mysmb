@@ -55,6 +55,8 @@ static int serr;
 static uint8_t sbuf[16384];
 static uint32_t hp[600], sdh, sH1;
 static int stest = -1, sphase, sdiv, ssz;
+#define SA 1500
+#define SB 2100
 static void snap_test(void) {
     if (stest < 0) {
         struct stat st;
@@ -63,19 +65,19 @@ static void snap_test(void) {
     }
     if (dcount == 100) { FILE *g=fopen("/sdcard/SMB/snapdbg.txt","w"); if(g){fprintf(g,"stest=%d dmode=%d dcount=%d size=%d err=%d\n",stest,dmode,dcount,snap_size(),serr); fclose(g);} }
     if (!stest) return;
-    if (sphase == 0 && dmode == 0 && dcount == 600) {
+    if (sphase == 0 && dmode == 0 && dcount == SA) {
         ssz = snap_size();
         if (ssz > (int)sizeof(sbuf)) { stest = 0; return; }
         snap_save(sbuf); sdh = dh; sphase = 1;
     } else if (sphase == 1) {
-        if (dcount > 600 && dcount <= 1200) hp[dcount - 601] = dh;
-        if (dcount == 1200) {
-            sH1 = dh; dlen = 1200;
-            snap_load(sbuf); dcount = 600; dh = sdh; dmode = 1; sphase = 2;
+        if (dcount > SA && dcount <= SB) hp[dcount - (SA+1)] = dh;
+        if (dcount == SB) {
+            sH1 = dh; dlen = SB;
+            snap_load(sbuf); dcount = SA; dh = sdh; dmode = 1; sphase = 2;
         }
     } else if (sphase == 2) {
-        if (dcount > 600 && dcount <= 1200 && !sdiv && dh != hp[dcount - 601]) sdiv = dcount;
-        if (dcount == 1200) {
+        if (dcount > SA && dcount <= SB && !sdiv && dh != hp[dcount - (SA+1)]) sdiv = dcount;
+        if (dcount == SB) {
             FILE *f = fopen("/sdcard/SMB/snap.txt", "w");
             if (f) {
                 fprintf(f, "size=%d H1=%08x H2=%08x diverge_frame=%d %s\n",
