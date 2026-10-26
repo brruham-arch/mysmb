@@ -13,6 +13,8 @@ void extra_test(void);
 void extra_overlay(uint8_t *o);
 void extra_restore(uint8_t *o);
 int net_on(void);
+int p2_firepal(void);
+#include <string.h>
 int net_begin(uint32_t, uint8_t *);
 void net_end(void);
 
@@ -57,7 +59,10 @@ JNIEXPORT void JNICALL Java_com_brruham_smb_Core_frame(JNIEnv *env, jclass c, ji
     //extra_test();
     //extra_run();
     extra_overlay(video.oam);
+    uint8_t sp1[3]; int fp = p2_firepal();
+    if (fp) { memcpy(sp1, &video.palette.u8[0x15], 3); video.palette.u8[0x15] = 0x30; video.palette.u8[0x16] = 0x27; video.palette.u8[0x17] = 0x19; }
     render_frame();
+    if (fp) memcpy(&video.palette.u8[0x15], sp1, 3);
     extra_restore(video.oam);
     sound_end_frame();
 present: ;

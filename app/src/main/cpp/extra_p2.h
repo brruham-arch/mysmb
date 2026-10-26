@@ -68,6 +68,7 @@ static void p2_paste(uint8_t *oam, int *cur) {
     if (p2.vis) p2_put(oam, cur, p2.spr, 8);
     if (p2.fbv && !p2.dead) p2_put(oam, cur, p2.fbs, 4);
 }
+int p2_firepal(void) { return p2.en && p2.vis && !p2.dead && p2.s[pai(0x756)] == 2; }
 // dipanggil sebelum run_player_task P1
 int p2_pre(void) {
     if (!p2.en || !p2.ok) return 0;
