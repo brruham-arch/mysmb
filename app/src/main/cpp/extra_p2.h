@@ -30,7 +30,9 @@ typedef char p2_chk[(sizeof(PA) / sizeof(PA[0])) <= 64 ? 1 : -1];
 typedef struct { uint8_t s[64], ring[32], spr[32], rp, tk, en, ok, rs, vis, dead, dy, rt, go, slk, sv, lk, sa, pend; uint16_t sg; uint8_t fb[19], fbs[16], fbv; } P2;
 static P2 p2;
 static uint8_t p2_ksz = 1, p2_kpw;
-static int p2_pal;   // ukuran/power Luigi, bertahan melewati p2_reset
+static int p2_pal;
+static int p2_flock;
+void p2_setfire(int on) { p2_flock = on; }   // ukuran/power Luigi, bertahan melewati p2_reset
 static uint16_t p2_sig(void) {
     return (uint16_t)(ram[0x750]*31u + ram[0x74f]*17u + ram[0x74e]*7u + ram[0x75c]*131u + ram[0x75f]*257u + ram[0x760]*13u);
 }
@@ -200,6 +202,10 @@ static void p2_run(void) {
         P2LOG("SPAWN rs=%d lx=%d ly=%d size=%d task=%d\n", p2.rs, ram[0x6d]*256+ram[0x86], ram[0xce], ram[0x754], ram[0x772]);
         p2.rs = 0;
     }
+    if (p2_flock && !p2.dead) {
+        if (ram[0x754] != 0 && ram[0xce] >= 16) ram[0xce] = (uint8_t)(ram[0xce] - 16);
+        ram[0x754] = 0; ram[0x756] = 2;
+    }
     uint8_t st0 = ram[0x756];
     ram[0x6fc] = inp; ram[0x6e4] = P2S; ram[0x723] = 1;
     { static const uint16_t TF[6] = {0x781,0x782,0x783,0x785,0x786,0x789};
@@ -210,7 +216,7 @@ static void p2_run(void) {
     uint8_t tk = ram[0x0e];
     if (!anim && tk == 8 && tmp[0x0e] != 4 && tmp[0x0e] != 5) { p2_collide(); tk = ram[0x0e]; }
     { static uint8_t ltk = 255; if (tk != ltk) { P2LOG("TK %d->%d lx=%d ly=%d p1tk=%d p1x=%d\n", ltk, tk, ram[0x6d] * 256 + ram[0x86], ram[0xce], tmp[0x0e], p1s[pai(0x6d)] * 256 + p1s[pai(0x86)]); ltk = tk; } }
-    if (tk == 0x0a) { ram[0x0e] = 8; ram[0x754] = 1; ram[0x756] = 0; ram[0x70b] = 0; tk = 8; }
+    if (tk == 0x0a) { ram[0x0e] = 8; if (!p2_flock) { ram[0x754] = 1; ram[0x756] = 0; } ram[0x70b] = 0; tk = 8; }
     if (tk == 0x09) { ram[0x0e] = 8; ram[0x754] = 0; ram[0x70b] = 0; tk = 8; }
     if (tk == 0x0c) { ram[0x0e] = 8; ram[0x3c4] &= 0xfc; tk = 8; }
     if (tk == 3 || tk == 2) { ram[0x0e] = 8; tk = 8; }   // P2 tidak boleh masuk pipa sendiri

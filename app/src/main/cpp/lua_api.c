@@ -135,12 +135,14 @@ static int l_spawn(lua_State *s) {
 }
 static int l_ecount(lua_State *s) { lua_pushinteger(s, extra_count()); return 1; }
 static int l_ereset(lua_State *s) { extra_reset(); return 0; }
+extern void p2_setfire(int);
+static int l_p2fire(lua_State *s) { p2_setfire(lua_toboolean(s, 1)); return 0; }
 
 static const luaL_Reg memlib[] = {
     {"get", l_get}, {"set", l_set}, {"size", l_size},
     {"peek", l_peek}, {"poke", l_poke}, {NULL, NULL}};
 static const luaL_Reg enemylib[] = {
-    {"spawn", l_spawn}, {"spawn_at", l_spawn_at}, {"item_at", l_item_at}, {"item_count", l_item_count}, {"name", l_ename}, {"name_orig", l_oname}, {"count", l_ecount}, {"reset", l_ereset}, {NULL, NULL}};
+    {"spawn", l_spawn}, {"spawn_at", l_spawn_at}, {"item_at", l_item_at}, {"item_count", l_item_count}, {"name", l_ename}, {"name_orig", l_oname}, {"count", l_ecount}, {"reset", l_ereset}, {"p2fire", l_p2fire}, {NULL, NULL}};
 
 static char *pending;
 static pthread_mutex_t pm = PTHREAD_MUTEX_INITIALIZER;
