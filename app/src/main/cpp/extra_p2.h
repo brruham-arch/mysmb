@@ -226,7 +226,9 @@ static void p2_run(void) {
         memset(&ram[0x200 + P2S], 0xf8, 32);
         draw_player();
         memcpy(p2.spr, &ram[0x200 + P2S], 32);
-        for (int s = 0; s < 8; s++) p2.spr[s * 4 + 2] = (uint8_t)((p2.spr[s * 4 + 2] & 0xfc) | P2_PAL);
+        { int pal = P2_PAL; uint8_t st = ram[0x79f];
+          if (st) { uint8_t fa = ram[9]; if (st < 8) fa >>= 2; fa >>= 1; pal = fa & 3; }
+          for (int s = 0; s < 8; s++) p2.spr[s * 4 + 2] = (uint8_t)((p2.spr[s * 4 + 2] & 0xfc) | pal); }
         p2.vis = 1;
     }
     if (++p2.tk >= 21) { p2.tk = 0; if (ram[0x79e]) ram[0x79e]--; if (ram[0x79f]) ram[0x79f]--; }
