@@ -27,7 +27,7 @@ static const uint16_t PA[] = {
   0x781,0x782,0x783,0x785,0x786,0x789,0x79e,0x79f };
 #define NPA ((int)(sizeof(PA) / sizeof(PA[0])))
 typedef char p2_chk[(sizeof(PA) / sizeof(PA[0])) <= 64 ? 1 : -1];
-typedef struct { uint8_t s[64], ring[32], spr[32], rp, tk, en, ok, rs, vis, dead, dy, rt, go, slk, sv, lk, sa, pend; uint16_t sg; } P2;
+typedef struct { uint8_t s[64], ring[32], spr[32], rp, tk, en, ok, rs, vis, dead, dy, rt, go, slk, sv, lk, sa, pend; uint16_t sg; uint8_t fb[19], fbs[16], fbv; } P2;
 static P2 p2;
 static uint8_t p2_ksz = 1, p2_kpw;
 static int p2_pal;   // ukuran/power Luigi, bertahan melewati p2_reset
@@ -36,15 +36,37 @@ static uint16_t p2_sig(void) {
 }
 static int pai(uint16_t a) { for (int i = 0; i < NPA; i++) if (PA[i] == a) return i; return 0; }
 static void p2_reset(void) { uint8_t en = p2.en; memset(&p2, 0, sizeof p2); p2.en = en; }
-static void p2_paste(uint8_t *oam, int *cur) {
-    if (!p2.en || !p2.vis) return;
-    for (int s = 0; s < 8; s++) {
-        if (p2.spr[s * 4] >= 0xef) continue;
+extern void update_fireballs_and_bubbles(void);
+#define P2FB 0xd0
+#define NFB 19
+static const uint16_t FBA[NFB] = {0x24,0x25,0x3a,0x3b,0x5e,0x5f,0x74,0x75,0x8d,0x8e,0xa6,0xa7,0xbc,0xbd,0xd5,0xd6,0x4a0,0x4a1,0x6ce};
+static void p2_fire(void) {
+    if (ram[0x74e] == 0) return;   // level air: lewati, hindari gelembung diproses dua kali
+    uint8_t sv[NFB], so1 = ram[0x6f1], so2 = ram[0x6f2], bk[16];
+    for (int i = 0; i < NFB; i++) { sv[i] = ram[FBA[i]]; ram[FBA[i]] = p2.fb[i]; }
+    ram[0x6f1] = P2FB; ram[0x6f2] = P2FB + 8;
+    memcpy(bk, &ram[0x200 + P2FB], 16);
+    for (int s = 0; s < 4; s++) ram[0x200 + P2FB + s * 4] = 0xf8;
+    update_fireballs_and_bubbles();
+    memcpy(p2.fbs, &ram[0x200 + P2FB], 16);
+    memcpy(&ram[0x200 + P2FB], bk, 16);
+    p2.fbv = 1;
+    ram[0x6f1] = so1; ram[0x6f2] = so2;
+    for (int i = 0; i < NFB; i++) { p2.fb[i] = ram[FBA[i]]; ram[FBA[i]] = sv[i]; }
+}
+static void p2_put(uint8_t *oam, int *cur, const uint8_t *src, int n) {
+    for (int s = 0; s < n; s++) {
+        if (src[s * 4] >= 0xef) continue;
         while (*cur < 64 && oam[*cur * 4] < 0xef) (*cur)++;
         if (*cur >= 64) return;
-        memcpy(&oam[*cur * 4], &p2.spr[s * 4], 4);
+        memcpy(&oam[*cur * 4], &src[s * 4], 4);
         (*cur)++;
     }
+}
+static void p2_paste(uint8_t *oam, int *cur) {
+    if (!p2.en) return;
+    if (p2.vis) p2_put(oam, cur, p2.spr, 8);
+    if (p2.fbv && !p2.dead) p2_put(oam, cur, p2.fbs, 4);
 }
 // dipanggil sebelum run_player_task P1
 int p2_pre(void) {
@@ -137,6 +159,7 @@ static void p2_run(void) {
     memset(p2.spr, 0xf8, 32); p2.vis = 0;
     int anim = 0;
     if (p2.dead) {
+        p2.fbv = 0; memset(p2.fb, 0, sizeof p2.fb);
         if (p2.rt) p2.rt--;
         else if (ram[0x0e] == 8) { p2.dead = 0; p2.dy = 0; p2.rs = 2; }
         if (p2.dead) { if (!p2.dy) return; anim = 1; }
@@ -181,6 +204,7 @@ static void p2_run(void) {
     { static const uint16_t TF[6] = {0x781,0x782,0x783,0x785,0x786,0x789};
       for (int i = 0; i < 6; i++) if (ram[TF[i]]) ram[TF[i]]--; }
     control_player();
+    if (!p2.dead) p2_fire();
     ram[0x0d] = ram[0x0a];
     uint8_t tk = ram[0x0e];
     if (!anim && tk == 8 && tmp[0x0e] != 4 && tmp[0x0e] != 5) { p2_collide(); tk = ram[0x0e]; }
