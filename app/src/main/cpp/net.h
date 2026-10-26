@@ -134,6 +134,7 @@ static void net_pump(void) {
         nrlen -= o;
     }
 }
+extern uint8_t lua_input(uint32_t);
 int net_begin(uint32_t raw, uint8_t *m1out) {
     net_pump();
     if (net_st != 2) return 0;
@@ -150,6 +151,7 @@ int net_begin(uint32_t raw, uint8_t *m1out) {
     }
     if (nrnext <= f) return 0;
     uint8_t mh = (net_role == 1) ? nlin[f & 1023] : nrin[f & 1023];
+    mh = lua_input(mh);
     uint8_t mc = (net_role == 1) ? nrin[f & 1023] : nlin[f & 1023];
     if (ram[0x770] == 0 && f >= 90 && (f % 48) < 3) mh |= 0x08;
     mc &= (uint8_t)~0x0c;
