@@ -114,7 +114,7 @@ int p2_pre(void) {
 }
 static void p2_collide(void) {
     uint8_t s8 = ram[8], xr = x;
-    for (int i = 0; i < 5 && ram[0x0e] == 8; i++) if (ram[0x0f + i]) {
+    for (int i = 0; i < 5 && ram[0x0e] == 8; i++) if (ram[0x0f + i] && ram[0x16 + i] != 0x31) {
         ram[8] = (uint8_t)i; x = (uint8_t)i; player_enemy_collision();
         if (ram[0x0e] != 8) P2LOG("COLL slot=%d kind=%d tk=%d ex=%d ey=%d plx=%d\n", i, ram[0x16 + i], ram[0x0e], ram[0x6e + i] * 256 + ram[0x87 + i], ram[0xcf + i], ram[0x6d] * 256 + ram[0x86]);
     }
